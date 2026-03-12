@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>みんなの日本語</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>日</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --card: #fff;
+      --ink: #1a1a1a;
+      --muted: #6b6b6b;
+      --accent: #c45c26;
+      --accent-hover: #a04a1e;
+      --border: #e8e4df;
+      --star: #c45c26;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Noto Sans TC', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 1.5rem;
+      color: var(--accent);
+    }
+    nav {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+    }
+    nav button {
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    nav button:hover { color: var(--ink); background: var(--border); }
+    nav button.active { color: var(--accent); font-weight: 500; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card-ui {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 0.35rem; }
+    input[type="number"], input[type="text"] {
+      font-family: inherit;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 120px;
+    }
+    textarea {
+      font-family: 'Noto Sans JP', 'Noto Sans TC', monospace;
+      font-size: 0.9rem;
+      width: 100%;
+      min-height: 160px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      resize: vertical;
+    }
+    .btn {
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      margin-right: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .btn-outline:hover { background: rgba(196,92,38,0.08); }
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.8rem; margin-right: 0.25rem; margin-top: 0.25rem; }
+    .filters .btn { padding: 0.35rem 0.65rem; font-size: 0.85rem; }
+    .filters .btn-outline { padding: 0.35rem 0.65rem; font-size: 0.85rem; }
+    .msg { font-size: 0.9rem; margin-top: 0.75rem; color: var(--muted); }
+    .msg.err { color: #b33; }
+    .msg.ok { color: #2a7a2a; }
+    .msg.hint { margin-top: 0.35rem; margin-bottom: 0.5rem; }
+    .prompt-block { margin-top: 0.25rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .jp { font-family: 'Noto Sans JP', sans-serif; }
+    .star { color: var(--star); }
+    .row-mastered { opacity: 0.5; color: var(--muted); }
+    .filters { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .filters label { margin-bottom: 0; margin-right: 0.25rem; }
+    .filters input[type="number"] { max-width: 80px; }
+    .flashcard {
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .flashcard .front .card-ja { font-family: 'Noto Sans JP', sans-serif; font-size: 2.2rem; font-weight: 500; margin-bottom: 0.25rem; }
+    .flashcard .front .card-kana { font-family: 'Noto Sans JP', sans-serif; font-size: 1.35rem; color: var(--muted); margin-bottom: 1rem; }
+    .flashcard .back .meaning { font-size: 1.25rem; }
+    .flashcard .back .jp { font-size: 1.1rem; color: var(--muted); margin-top: 0.5rem; }
+    .flashcard-actions { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+    .flashcard-actions .btn { margin: 0; }
+    .btn-again { background: #b33; }
+    .btn-good { background: #2a7a2a; }
+    .btn-easy { background: #1a5a8a; }
+    audio { margin-top: 0.75rem; max-width: 100%; }
+    .empty { color: var(--muted); padding: 2rem; text-align: center; }
+    .prompt-pre { background: var(--border); padding: 1rem; border-radius: 8px; font-size: 0.85rem; white-space: pre-wrap; margin: 0 0 0.75rem; overflow-x: auto; }
+    .grammar-view { background: var(--border); padding: 1rem; border-radius: 8px; font-size: 0.9rem; white-space: pre-wrap; max-height: 280px; overflow-y: auto; margin: 0.5rem 0 1rem; text-align: left; }
+    .grammar-view:empty { display: none; }
+    .grammar-view-wrap:not(.has-content) { display: none; }
+    .table-phrase td { white-space: normal; word-break: break-word; max-width: 18em; vertical-align: top; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>みんなの日本語</h1>
+    <nav>
+      <button type="button" class="active" data-tab="grammar">文法</button>
+      <button type="button" data-tab="import">新增單字</button>
+      <button type="button" data-tab="list">單字清單</button>
+      <button type="button" data-tab="phrase-import">新增短語</button>
+      <button type="button" data-tab="phrase-list">短語清單</button>
+      <button type="button" data-tab="flashcard">單字測驗</button>
+      <button type="button" data-tab="phrase-flashcard">短語測驗</button>
+    </nav>
+
+    <!-- 文法 -->
+    <section id="panel-grammar" class="panel active">
+      <div class="card-ui">
+        <label>檢視／編輯文法重點（依課程）</label>
+        <label for="grammar-lesson-id">課程編號（lesson_id，留空＝依課程先後顯示全部）</label>
+        <input type="number" id="grammar-lesson-id" min="1" placeholder="留空＝全部" />
+        <button type="button" class="btn" id="btn-load-grammar">載入本課</button>
+        <div class="grammar-view-wrap" id="grammar-view-wrap">
+          <label>本課文法重點（僅檢視，可捲動）</label>
+          <div class="grammar-view" id="grammar-view" role="article"></div>
+        </div>
+        <label for="grammar-content" style="margin-top:0.75rem;">若要新增或修改並儲存</label>
+        <textarea id="grammar-content" placeholder="貼上 LLM 整理好的文法重點，或載入後在此編輯…" style="min-height:160px;"></textarea>
+        <button type="button" class="btn" id="btn-save-grammar">儲存至本課</button>
+        <p id="grammar-msg" class="msg"></p>
+      </div>
+      <div class="card-ui prompt-block">
+        <label>貼給 Web LLM 的提示詞（預覽＝複製內容）</label>
+        <p class="msg hint">下方為完整提示詞，點「複製生成提示詞」後貼到 Web LLM 使用。</p>
+        <button type="button" class="btn" id="btn-copy-grammar-prompt">複製生成提示詞</button>
+        <p id="grammar-prompt-msg" class="msg"></p>
+        <pre id="grammar-prompt-preview" class="prompt-pre"></pre>
+      </div>
+    </section>
+
+    <!-- 新增單字 -->
+    <section id="panel-import" class="panel">
+      <div class="card-ui">
+        <label>課程編號（lesson_id）</label>
+        <input type="number" id="import-lesson-id" value="1" min="1" />
+      </div>
+      <div class="card-ui">
+        <label>貼上單字表</label>
+        <textarea id="import-text" placeholder="ロビー||大廳&#10;へや|部屋|房間"></textarea>
+        <button type="button" class="btn" id="btn-import">解析並匯入</button>
+        <p id="import-msg" class="msg"></p>
+      </div>
+      <div class="card-ui prompt-block">
+        <label>貼給 Web LLM 的提示詞（預覽＝複製內容）</label>
+        <p class="msg hint">輸入網址後預覽即時更新；點「複製生成提示詞」後貼到 Web LLM 產出單字表。</p>
+        <label for="import-url">網址（選填）</label>
+        <input type="text" id="import-url" placeholder="https://youtu.be/..." style="max-width:100%;" />
+        <button type="button" class="btn" id="btn-copy-vocab-prompt-with-url">複製生成提示詞</button>
+        <p id="import-prompt-msg" class="msg"></p>
+        <pre id="web-llm-prompt-text" class="prompt-pre"></pre>
+      </div>
+    </section>
+
+    <!-- 新增短語 -->
+    <section id="panel-phrase-import" class="panel">
+      <div class="card-ui">
+        <label>課程編號（lesson_id）</label>
+        <input type="number" id="phrase-import-lesson-id" value="1" min="1" />
+      </div>
+      <div class="card-ui">
+        <label>貼上短語表（格式同單字：五十音／日文／中文）</label>
+        <textarea id="phrase-import-text" placeholder="lesson_id: 3&#10;いらっしゃいませ||歡迎光臨（店員對客人）&#10;[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]"></textarea>
+        <button type="button" class="btn" id="btn-phrase-import">解析並匯入</button>
+        <p id="phrase-import-msg" class="msg"></p>
+      </div>
+      <div class="card-ui prompt-block">
+        <label>貼給 Web LLM 的提示詞（預覽＝複製內容）</label>
+        <p class="msg hint">輸入網址後預覽即時更新；點「複製生成提示詞」後貼到 Web LLM 產出會話及短語。</p>
+        <label for="phrase-import-url">網址（選填）</label>
+        <input type="text" id="phrase-import-url" placeholder="https://youtu.be/..." style="max-width:100%;" />
+        <button type="button" class="btn" id="btn-copy-phrase-prompt-with-url">複製生成提示詞</button>
+        <p id="phrase-import-prompt-msg" class="msg"></p>
+        <pre id="phrase-prompt-text" class="prompt-pre"></pre>
+      </div>
+    </section>
+
+    <!-- 短語清單 -->
+    <section id="panel-phrase-list" class="panel">
+      <div class="card-ui">
+        <div class="filters">
+          <label>課程 id（0＝全部）</label>
+          <input type="number" id="phrase-list-lesson-id" value="0" min="0" placeholder="0=全部" />
+          <label><input type="checkbox" id="phrase-list-starred" /> 星標</label>
+          <button type="button" class="btn" id="btn-phrase-load">載入</button>
+          <button type="button" class="btn btn-outline" id="btn-phrase-delete-lesson" title="刪除此課程全部短語">刪除本課程全部</button>
+        </div>
+        <div id="phrase-list-wrap"></div>
+        <p id="phrase-list-msg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- 單字清單 -->
+    <section id="panel-list" class="panel">
+      <div class="card-ui">
+        <div class="filters">
+          <label>課程 id（0＝全部）</label>
+          <input type="number" id="list-lesson-id" value="0" min="0" placeholder="0=全部" />
+          <label><input type="checkbox" id="list-starred" /> 星標</label>
+          <button type="button" class="btn" id="btn-load-list">載入</button>
+          <button type="button" class="btn btn-outline" id="btn-delete-lesson" title="刪除上方課程 id 的全部單字">刪除本課程全部</button>
+        </div>
+        <div id="list-table-wrap"></div>
+        <p id="list-msg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- 單字測驗 -->
+    <section id="panel-flashcard" class="panel">
+      <div class="card-ui">
+        <div class="filters">
+          <label>課程 id（0＝全部）</label>
+          <input type="number" id="fc-lesson-id" value="0" min="0" placeholder="0=全部" />
+          <label><input type="checkbox" id="fc-starred" /> 星標</label>
+          <button type="button" class="btn" id="btn-fc-load">載入</button>
+        </div>
+        <div id="flashcard-area" class="card-ui">
+          <div id="flashcard-empty" class="empty">
+            <p>點「載入」抽第一張，答題後會自動跳下一張</p>
+            <button type="button" class="btn" id="btn-start">載入</button>
+          </div>
+          <div id="flashcard-box" style="display:none;">
+            <div class="flashcard" id="flashcard-inner">
+              <div id="card-front" class="front"></div>
+              <div id="card-back" class="back" style="display:none;"></div>
+              <button type="button" class="btn btn-outline" id="btn-flip" style="display:none; margin-top:1rem;">翻面</button>
+            </div>
+            <div class="flashcard-actions" id="card-actions" style="display:none;">
+              <button type="button" class="btn btn-again" data-outcome="again">困難</button>
+              <button type="button" class="btn btn-good" data-outcome="good">保留</button>
+              <button type="button" class="btn btn-easy" data-outcome="easy">簡單</button>
+            </div>
+          </div>
+        </div>
+        <p id="fc-msg" class="msg"></p>
+      </div>
+    </section>
+
+    <!-- 短語測驗 -->
+    <section id="panel-phrase-flashcard" class="panel">
+      <div class="card-ui">
+        <div class="filters">
+          <label>課程 id（0＝全部）</label>
+          <input type="number" id="phrase-fc-lesson-id" value="0" min="0" placeholder="0=全部" />
+          <label><input type="checkbox" id="phrase-fc-starred" /> 星標</label>
+          <button type="button" class="btn" id="btn-phrase-fc-load">載入</button>
+        </div>
+        <div id="phrase-flashcard-area" class="card-ui">
+          <div id="phrase-flashcard-empty" class="empty">
+            <p>點「載入」抽第一張短語，答題後會自動跳下一張</p>
+            <button type="button" class="btn" id="btn-phrase-start">載入</button>
+          </div>
+          <div id="phrase-flashcard-box" style="display:none;">
+            <div class="flashcard" id="phrase-flashcard-inner">
+              <div id="phrase-card-front" class="front"></div>
+              <div id="phrase-card-back" class="back" style="display:none;"></div>
+              <button type="button" class="btn btn-outline" id="btn-phrase-flip" style="display:none; margin-top:1rem;">翻面</button>
+            </div>
+            <div class="flashcard-actions" id="phrase-card-actions" style="display:none;">
+              <button type="button" class="btn btn-again" data-outcome="again">困難</button>
+              <button type="button" class="btn btn-good" data-outcome="good">保留</button>
+              <button type="button" class="btn btn-easy" data-outcome="easy">簡單</button>
+            </div>
+          </div>
+        </div>
+        <p id="phrase-fc-msg" class="msg"></p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // 從 file:// 開頁面時需指定後端網址；從同源開則留空
+    const API = (window.location.protocol === 'file:' || window.location.port !== '8000')
+      ? 'http://localhost:8000' : '';
+    function setMsg(elId, text, isErr) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'msg' + (isErr ? ' err' : ' ok');
+    }
+    function clearMsg(elId) {
+      const el = document.getElementById(elId);
+      if (el) { el.textContent = ''; el.className = 'msg'; }
+    }
+
+    // Tabs
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // 文法／單字／短語：預覽＝複製內容，統一邏輯
+    var GRAMMAR_PROMPT_TEXT = '你是一位日文教材編輯。請根據我提供的網址或課文內容，整理「本課文法重點」。\n請條列式輸出，每條可包含：文法項目、例句、簡短說明。不要輸出多餘說明，只輸出文法重點內容。\n';
+    var VOCAB_PROMPT_PREFIX = '請根據以下網址，整理本課單字。\n【網址】\n';
+    var VOCAB_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號。\n\n【首行限定】\n僅輸出 lesson_id: [數字]。\n\n【範例格式】\nlesson_id: 3\nロビー||大廳\nへや|部屋|房間\nトイレ||廁所\nおてあらい|お手洗い|洗手間（較委婉）';
+    var PHRASE_PROMPT_PREFIX = '請根據以下網址，尋找課程中會話及短語。\n【網址】\n';
+    var PHRASE_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號、不要時間戳。\n\n【範例】\nlesson_id: 3\nいらっしゃいませ||歡迎光臨（店員對客人）\n[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]\nじゃ||那麼...（用於決定買下某物時）';
+
+    function updateGrammarPreview() {
+      var el = document.getElementById('grammar-prompt-preview');
+      if (el) el.textContent = GRAMMAR_PROMPT_TEXT;
+    }
+    function updateVocabPreview() {
+      var el = document.getElementById('web-llm-prompt-text');
+      if (!el) return;
+      var urlEl = document.getElementById('import-url');
+      var url = (urlEl && urlEl.value) ? urlEl.value.trim() : '';
+      el.textContent = VOCAB_PROMPT_PREFIX + (url || '[請在此貼上網址]') + VOCAB_PROMPT_RULES;
+    }
+    function updatePhrasePreview() {
+      var el = document.getElementById('phrase-prompt-text');
+      if (!el) return;
+      var urlEl = document.getElementById('phrase-import-url');
+      var url = (urlEl && urlEl.value) ? urlEl.value.trim() : '';
+      el.textContent = PHRASE_PROMPT_PREFIX + (url || '[請在此貼上網址]') + PHRASE_PROMPT_RULES;
+    }
+    function copyPromptToClipboard(preId, msgId, successMsg) {
+      var pre = document.getElementById(preId);
+      if (!pre) return;
+      var text = pre.textContent || '';
+      navigator.clipboard.writeText(text).then(function() {
+        setMsg(msgId, successMsg, false);
+      }).catch(function(e) {
+        setMsg(msgId, '複製失敗：' + (e && e.message ? e.message : String(e)), true);
+      });
+    }
+    updateGrammarPreview();
+    updateVocabPreview();
+    updatePhrasePreview();
+    document.getElementById('import-url').addEventListener('input', updateVocabPreview);
+    document.getElementById('import-url').addEventListener('change', updateVocabPreview);
+    document.getElementById('phrase-import-url').addEventListener('input', updatePhrasePreview);
+    document.getElementById('phrase-import-url').addEventListener('change', updatePhrasePreview);
+
+    document.getElementById('btn-copy-grammar-prompt').addEventListener('click', function() {
+      copyPromptToClipboard('grammar-prompt-preview', 'grammar-prompt-msg', '已複製到剪貼簿，可貼到 Web LLM 使用');
+    });
+    document.getElementById('btn-copy-vocab-prompt-with-url').addEventListener('click', function() {
+      copyPromptToClipboard('web-llm-prompt-text', 'import-prompt-msg', '已複製生成提示詞到剪貼簿');
+    });
+
+    function formatError(d) {
+      if (typeof d === 'string') return d;
+      if (Array.isArray(d)) return d.map(x => x.msg || JSON.stringify(x)).join('；');
+      if (d && typeof d.detail !== 'undefined') return formatError(d.detail);
+      return JSON.stringify(d);
+    }
+
+    // 單字表：解析並匯入（直接寫入資料庫）
+    document.getElementById('btn-import').addEventListener('click', async () => {
+      clearMsg('import-msg');
+      const text = document.getElementById('import-text').value.trim();
+      const lessonId = parseInt(document.getElementById('import-lesson-id').value, 10) || 1;
+      if (!text) { setMsg('import-msg', '請貼上單字表內容', true); return; }
+      try {
+        const r = await fetch(API + '/api/vocabulary/import-from-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, lesson_id: lessonId })
+        });
+        let d;
+        try { d = await r.json(); } catch (_) { throw new Error(r.status + ' ' + r.statusText); }
+        if (!r.ok) throw new Error(formatError(d));
+        setMsg('import-msg', '已解析並匯入 ' + (d.imported_count || 0) + ' 筆到課程 ' + (d.lesson_id || lessonId), false);
+      } catch (e) {
+        setMsg('import-msg', '匯入失敗：' + e.message, true);
+      }
+    });
+
+    // 文法：載入本課或全部（課程編號留空＝依課程先後顯示全部）
+    document.getElementById('btn-load-grammar').addEventListener('click', async () => {
+      var lessonIdInput = document.getElementById('grammar-lesson-id').value.trim();
+      var viewEl = document.getElementById('grammar-view');
+      var wrapEl = document.getElementById('grammar-view-wrap');
+      clearMsg('grammar-msg');
+      try {
+        if (lessonIdInput === '') {
+          var r = await fetch(API + '/api/grammar');
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.detail || r.statusText);
+          var items = d.items || [];
+          var parts = [];
+          items.forEach(function (it) {
+            var title = '第 ' + it.lesson_id + ' 課';
+            if (it.lesson_name) title += ' ' + it.lesson_name;
+            parts.push(title + '\n\n' + (it.content || '（尚無內容）'));
+          });
+          var content = parts.length ? parts.join('\n\n———\n\n') : '尚無任何課程文法資料。';
+          viewEl.textContent = content;
+          wrapEl.classList.toggle('has-content', !!content);
+          document.getElementById('grammar-content').value = '';
+          setMsg('grammar-msg', '已載入共 ' + items.length + ' 課（依課程先後）', false);
+        } else {
+          var lessonId = parseInt(lessonIdInput, 10) || 1;
+          var r = await fetch(API + '/api/lessons/' + lessonId + '/grammar');
+          var d = await r.json();
+          if (!r.ok) throw new Error(d.detail || r.statusText);
+          var content = d.content || '';
+          viewEl.textContent = content;
+          wrapEl.classList.toggle('has-content', !!content);
+          document.getElementById('grammar-content').value = content;
+          setMsg('grammar-msg', '已載入第 ' + lessonId + ' 課', false);
+        }
+      } catch (e) {
+        setMsg('grammar-msg', '載入失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
+
+    // 文法：儲存至本課（需確認，避免誤擊覆蓋）
+    document.getElementById('btn-save-grammar').addEventListener('click', async () => {
+      var lessonId = parseInt(document.getElementById('grammar-lesson-id').value, 10) || 1;
+      var content = document.getElementById('grammar-content').value || '';
+      if (!confirm('確定要儲存至第 ' + lessonId + ' 課？將覆蓋該課現有文法重點。')) return;
+      clearMsg('grammar-msg');
+      try {
+        var r = await fetch(API + '/api/lessons/' + lessonId + '/grammar', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: content })
+        });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        document.getElementById('grammar-view').textContent = content;
+        document.getElementById('grammar-view-wrap').classList.toggle('has-content', !!content);
+        setMsg('grammar-msg', '已儲存至第 ' + lessonId + ' 課', false);
+      } catch (e) {
+        setMsg('grammar-msg', '儲存失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
+
+    // 單字清單：載入
+    document.getElementById('btn-load-list').addEventListener('click', async () => {
+      clearMsg('list-msg');
+      const lessonId = document.getElementById('list-lesson-id').value;
+      const starred = document.getElementById('list-starred').checked;
+      let url = API + '/api/vocabulary?';
+      if (lessonId !== '' && lessonId !== '0') url += 'lesson_id=' + encodeURIComponent(lessonId) + '&';
+      if (starred) url += 'starred_only=true';
+      try {
+        const r = await fetch(url);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        const items = d.items || [];
+        const wrap = document.getElementById('list-table-wrap');
+        if (items.length === 0) {
+          wrap.innerHTML = '<p class="empty">尚無單字</p>';
+        } else {
+          wrap.setAttribute('data-list-mode', 'all');
+          wrap.innerHTML = '<table><thead><tr><th>課程</th><th class="jp">五十音</th><th class="jp">日文漢字</th><th>中文解釋</th><th>星標</th><th>淡化</th><th>操作</th></tr></thead><tbody>' +
+            items.map(function(i) {
+              var starBtn = '<button type="button" class="btn btn-outline btn-sm btn-toggle-star" data-id="' + i.id + '" data-starred="' + i.is_starred + '" title="點擊切換">' + (i.is_starred ? '★' : '☆') + '</button>';
+              var masteredBtn = '<button type="button" class="btn btn-outline btn-sm btn-toggle-mastered" data-id="' + i.id + '" data-mastered="' + i.mastered + '" title="點擊切換">' + (i.mastered ? '是' : '否') + '</button>';
+              return '<tr' + (i.mastered ? ' class="row-mastered"' : '') + '><td>' + i.lesson_id + '</td><td class="jp">' + (i.kana || '') + '</td><td class="jp">' + (i.kanji || '') + '</td><td>' + (i.meaning || '') + '</td><td class="star">' + starBtn + '</td><td>' + masteredBtn + '</td><td><button type="button" class="btn btn-outline btn-sm btn-delete-vocab" data-id="' + i.id + '" title="刪除此筆">刪除</button></td></tr>';
+            }).join('') +
+            '</tbody></table>';
+        }
+        setMsg('list-msg', '共 ' + items.length + ' 筆', false);
+      } catch (e) {
+        setMsg('list-msg', '載入失敗：' + e.message, true);
+      }
+    });
+
+    document.getElementById('list-table-wrap').addEventListener('click', async function(e) {
+      var delBtn = e.target.closest('.btn-delete-vocab');
+      if (delBtn) {
+        var id = delBtn.getAttribute('data-id');
+        if (!id) return;
+        if (!confirm('確定要刪除此筆單字？')) return;
+        try {
+          var r = await fetch(API + '/api/vocabulary/' + id, { method: 'DELETE' });
+          var d = await r.json().catch(function() { return {}; });
+          if (!r.ok) throw new Error(d.detail || r.statusText);
+          setMsg('list-msg', '已刪除', false);
+          document.getElementById('btn-load-list').click();
+        } catch (err) {
+          setMsg('list-msg', '刪除失敗：' + (err && err.message ? err.message : String(err)), true);
+        }
+        return;
+      }
+      var starBtn = e.target.closest('.btn-toggle-star');
+      if (starBtn) {
+        var id = starBtn.getAttribute('data-id');
+        var current = starBtn.getAttribute('data-starred') === 'true';
+        if (!id) return;
+        try {
+          var r = await fetch(API + '/api/vocabulary/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_starred: !current })
+          });
+          var d = await r.json().catch(function() { return {}; });
+          if (!r.ok) throw new Error(d.detail || r.statusText);
+          setMsg('list-msg', current ? '已取消星標' : '已加星標', false);
+          document.getElementById('btn-load-list').click();
+        } catch (err) {
+          setMsg('list-msg', '更新失敗：' + (err && err.message ? err.message : String(err)), true);
+        }
+        return;
+      }
+      var masteredBtn = e.target.closest('.btn-toggle-mastered');
+      if (masteredBtn) {
+        var id = masteredBtn.getAttribute('data-id');
+        var current = masteredBtn.getAttribute('data-mastered') === 'true';
+        if (!id) return;
+        try {
+          var r = await fetch(API + '/api/vocabulary/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mastered: !current })
+          });
+          var d = await r.json().catch(function() { return {}; });
+          if (!r.ok) throw new Error(d.detail || r.statusText);
+          setMsg('list-msg', !current ? '已設為淡化（不再出題）' : '已取消淡化', false);
+          document.getElementById('btn-load-list').click();
+        } catch (err) {
+          setMsg('list-msg', '更新失敗：' + (err && err.message ? err.message : String(err)), true);
+        }
+      }
+    });
+
+    document.getElementById('btn-delete-lesson').addEventListener('click', async function() {
+      var lessonId = document.getElementById('list-lesson-id').value;
+      if (lessonId === '' || lessonId == null || lessonId === '0') { setMsg('list-msg', '請輸入欲刪除的課程 id（0 表示全部，不可刪除）', true); return; }
+      if (!confirm('確定要刪除課程 ' + lessonId + ' 的全部單字？此操作無法復原。')) return;
+      try {
+        var r = await fetch(API + '/api/vocabulary/lesson/' + lessonId, { method: 'DELETE' });
+        var d = await r.json().catch(function() { return {}; });
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        setMsg('list-msg', '已刪除 ' + (d.deleted_count || 0) + ' 筆', false);
+        document.getElementById('btn-load-list').click();
+      } catch (err) {
+        setMsg('list-msg', '刪除失敗：' + (err && err.message ? err.message : String(err)), true);
+      }
+    });
+
+    // 短語表：解析並匯入、複製提示詞
+    document.getElementById('btn-phrase-import').addEventListener('click', async () => {
+      clearMsg('phrase-import-msg');
+      var text = document.getElementById('phrase-import-text').value.trim();
+      var lessonId = parseInt(document.getElementById('phrase-import-lesson-id').value, 10) || 1;
+      if (!text) { setMsg('phrase-import-msg', '請貼上短語表內容', true); return; }
+      try {
+        var r = await fetch(API + '/api/phrases/import-from-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, lesson_id: lessonId })
+        });
+        var d = await r.json();
+        if (!r.ok) throw new Error(formatError(d));
+        setMsg('phrase-import-msg', '已解析並匯入 ' + (d.imported_count || 0) + ' 筆短語到課程 ' + (d.lesson_id || lessonId), false);
+      } catch (e) {
+        setMsg('phrase-import-msg', '匯入失敗：' + e.message, true);
+      }
+    });
+    document.getElementById('btn-copy-phrase-prompt-with-url').addEventListener('click', function() {
+      copyPromptToClipboard('phrase-prompt-text', 'phrase-import-prompt-msg', '已複製生成提示詞到剪貼簿');
+    });
+
+    // 短語清單：載入
+    document.getElementById('btn-phrase-load').addEventListener('click', async () => {
+      clearMsg('phrase-list-msg');
+      var lessonId = document.getElementById('phrase-list-lesson-id').value;
+      var starred = document.getElementById('phrase-list-starred').checked;
+      var url = API + '/api/phrases?';
+      if (lessonId !== '' && lessonId !== '0') url += 'lesson_id=' + encodeURIComponent(lessonId) + '&';
+      if (starred) url += 'starred_only=true';
+      try {
+        var r = await fetch(url);
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        var items = d.items || [];
+        var wrap = document.getElementById('phrase-list-wrap');
+        if (items.length === 0) {
+          wrap.innerHTML = '<p class="empty">尚無短語</p>';
+        } else {
+          var thead = '<table class="table-phrase"><thead><tr><th>課程</th><th class="jp">日文</th><th>中文解釋</th><th>星標</th><th>淡化</th><th>操作</th></tr></thead><tbody>';
+          var rows = items.map(function(i) {
+            var ja = (i.kanji && i.kanji !== i.kana) ? (i.kana + ' / ' + i.kanji) : (i.kana || '');
+            var starBtn = '<button type="button" class="btn btn-outline btn-sm btn-phrase-star" data-id="' + i.id + '" data-starred="' + i.is_starred + '">' + (i.is_starred ? '★' : '☆') + '</button>';
+            var masteredBtn = '<button type="button" class="btn btn-outline btn-sm btn-phrase-mastered" data-id="' + i.id + '" data-mastered="' + i.mastered + '">' + (i.mastered ? '是' : '否') + '</button>';
+            return '<tr' + (i.mastered ? ' class="row-mastered"' : '') + '><td>' + i.lesson_id + '</td><td class="jp">' + ja + '</td><td>' + (i.meaning || '') + '</td><td class="star">' + starBtn + '</td><td>' + masteredBtn + '</td><td><button type="button" class="btn btn-outline btn-sm btn-phrase-delete" data-id="' + i.id + '">刪除</button></td></tr>';
+          }).join('');
+          wrap.innerHTML = thead + rows + '</tbody></table>';
+        }
+        setMsg('phrase-list-msg', '共 ' + items.length + ' 筆', false);
+      } catch (e) {
+        setMsg('phrase-list-msg', '載入失敗：' + e.message, true);
+      }
+    });
+    document.getElementById('phrase-list-wrap').addEventListener('click', async function(e) {
+      var delBtn = e.target.closest('.btn-phrase-delete');
+      if (delBtn) {
+        var id = delBtn.getAttribute('data-id');
+        if (!id || !confirm('確定要刪除此筆短語？')) return;
+        try {
+          var r = await fetch(API + '/api/phrases/' + id, { method: 'DELETE' });
+          if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+          setMsg('phrase-list-msg', '已刪除', false);
+          document.getElementById('btn-phrase-load').click();
+        } catch (err) { setMsg('phrase-list-msg', '刪除失敗：' + err.message, true); }
+        return;
+      }
+      var starBtn = e.target.closest('.btn-phrase-star');
+      if (starBtn) {
+        var id = starBtn.getAttribute('data-id');
+        var cur = starBtn.getAttribute('data-starred') === 'true';
+        try {
+          var r = await fetch(API + '/api/phrases/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_starred: !cur }) });
+          if (!r.ok) throw new Error();
+          setMsg('phrase-list-msg', cur ? '已取消星標' : '已加星標', false);
+          document.getElementById('btn-phrase-load').click();
+        } catch (err) { setMsg('phrase-list-msg', '更新失敗', true); }
+        return;
+      }
+      var masteredBtn = e.target.closest('.btn-phrase-mastered');
+      if (masteredBtn) {
+        var id = masteredBtn.getAttribute('data-id');
+        var cur = masteredBtn.getAttribute('data-mastered') === 'true';
+        try {
+          var r = await fetch(API + '/api/phrases/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mastered: !cur }) });
+          if (!r.ok) throw new Error();
+          setMsg('phrase-list-msg', !cur ? '已設為淡化' : '已取消淡化', false);
+          document.getElementById('btn-phrase-load').click();
+        } catch (err) { setMsg('phrase-list-msg', '更新失敗', true); }
+      }
+    });
+    document.getElementById('btn-phrase-delete-lesson').addEventListener('click', async function() {
+      var lessonId = document.getElementById('phrase-list-lesson-id').value;
+      if (lessonId === '' || lessonId === '0') { setMsg('phrase-list-msg', '請輸入欲刪除的課程 id', true); return; }
+      if (!confirm('確定要刪除課程 ' + lessonId + ' 的全部短語？')) return;
+      try {
+        var r = await fetch(API + '/api/phrases/lesson/' + lessonId, { method: 'DELETE' });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        setMsg('phrase-list-msg', '已刪除 ' + (d.deleted_count || 0) + ' 筆', false);
+        document.getElementById('btn-phrase-load').click();
+      } catch (err) { setMsg('phrase-list-msg', '刪除失敗：' + err.message, true); }
+    });
+
+    // 抽卡
+    let currentCard = null;
+    let audioEl = null;
+
+    function showCardFront(card) {
+      const front = document.getElementById('card-front');
+      const back = document.getElementById('card-back');
+      const actions = document.getElementById('card-actions');
+      const btnFlip = document.getElementById('btn-flip');
+      front.style.display = 'block';
+      back.style.display = 'none';
+      actions.style.display = 'none';
+      btnFlip.style.display = 'block';
+      var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
+      var kana = (card.front && card.front.kana) ? card.front.kana : '';
+      if (!kanji && !kana) { kanji = card.back && card.back.kanji ? card.back.kanji : ''; kana = card.back && card.back.kana ? card.back.kana : ''; }
+      /** 只取日文（假名・漢字），去掉羅馬拼音，發音才不會唸兩次或怪聲 */
+      function kanaOnlyForTts(s) {
+        if (!s || !s.trim()) return s || '';
+        return s.replace(/[^\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u30FB\u3000\s]/g, '').trim() || s.trim();
+      }
+      var kanaForTts = kanaOnlyForTts(kana);
+      var baseUrl = API || window.location.origin || '';
+      var audioUrl = baseUrl + '/api/audio/play/' + card.vocabulary_id;
+      front.innerHTML = '<div class="card-ja">' + (kanji || '') + '</div><div class="card-kana">' + (kana || '') + '</div>' +
+        '<button type="button" class="btn" id="btn-play-pronounce">🔊 發音</button>';
+      setTimeout(function() {
+        var btn = document.getElementById('btn-play-pronounce');
+        if (!btn || !kana) return;
+        var playing = false;
+        btn.onclick = function(ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (playing) return;
+          playing = true;
+          setTimeout(function() { playing = false; }, 800);
+          var audio = new Audio(audioUrl);
+          audio.play().catch(function() { setMsg('fc-msg', '無法播放（請確認後端已啟動且網路正常）', true); });
+        };
+      }, 0);
+    }
+
+    function showCardBack(card) {
+      const back = document.getElementById('card-back');
+      const actions = document.getElementById('card-actions');
+      const btnFlip = document.getElementById('btn-flip');
+      back.style.display = 'block';
+      actions.style.display = 'flex';
+      btnFlip.style.display = 'none';
+      back.innerHTML = '<div class="meaning">' + (card.back && card.back.meaning ? card.back.meaning : '') + '</div>' +
+        (card.back && (card.back.kanji || card.back.kana) ? '<div class="jp" style="margin-top:0.5rem; color:var(--muted);">' + (card.back.kanji || '') + ' ' + (card.back.kana || '') + '</div>' : '');
+    }
+
+    document.getElementById('btn-flip').addEventListener('click', () => {
+      if (currentCard) showCardBack(currentCard);
+    });
+
+    /** 載入下一張卡（開始按鈕與答題後自動呼叫）。excludeId 可排除剛答過的那張，避免「困難」後又抽到同一張。 */
+    async function loadNextCard(excludeId) {
+      clearMsg('fc-msg');
+      var lessonIdEl = document.getElementById('fc-lesson-id');
+      var starredEl = document.getElementById('fc-starred');
+      var lessonId = lessonIdEl ? lessonIdEl.value : '';
+      var starred = starredEl ? starredEl.checked : false;
+      var url = API + '/api/flashcards/next?card_type=ja_to_zh';
+      if (lessonId !== '' && lessonId !== '0') url += '&lesson_id=' + encodeURIComponent(lessonId);
+      if (starred) url += '&starred_only=true';
+      if (excludeId != null) url += '&exclude_id=' + encodeURIComponent(excludeId);
+      try {
+        var r = await fetch(url);
+        var d;
+        try { d = await r.json(); } catch (_) { d = {}; }
+        if (r.status === 404) {
+          currentCard = null;
+          var emptyEl = document.getElementById('flashcard-empty');
+          var boxEl = document.getElementById('flashcard-box');
+          if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.innerHTML = '<p>目前沒有可複習的卡片</p><button type="button" class="btn" id="btn-start">載入</button>'; }
+          if (boxEl) boxEl.style.display = 'none';
+          setMsg('fc-msg', '目前沒有可複習的卡片', true);
+          bindStartBtn();
+          return;
+        }
+        if (!r.ok) throw new Error((d && d.detail) ? (Array.isArray(d.detail) ? d.detail[0].msg : d.detail) : r.statusText);
+        if (!d || d.vocabulary_id == null) throw new Error('卡片資料異常');
+        currentCard = d;
+        var emptyEl2 = document.getElementById('flashcard-empty');
+        var boxEl2 = document.getElementById('flashcard-box');
+        if (emptyEl2) emptyEl2.style.display = 'none';
+        if (boxEl2) boxEl2.style.display = 'block';
+        showCardFront(d);
+        setMsg('fc-msg', '', false);
+      } catch (e) {
+        setMsg('fc-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    }
+    function bindStartBtn() {
+      var btn = document.getElementById('btn-start');
+      if (btn) btn.onclick = function() { loadNextCard(); };
+    }
+    bindStartBtn();
+    document.getElementById('btn-fc-load').addEventListener('click', function() { loadNextCard(); });
+
+    document.getElementById('flashcard-inner').addEventListener('click', (e) => {
+      if (!currentCard || e.target.closest('[data-outcome]') || e.target.closest('#btn-flip') || e.target.closest('#btn-play-pronounce')) return;
+      const back = document.getElementById('card-back');
+      if (back.style.display === 'none') showCardBack(currentCard);
+    });
+
+    document.getElementById('card-actions').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-outcome]');
+      if (!btn || !currentCard) return;
+      const outcome = btn.dataset.outcome;
+      try {
+        const r = await fetch(API + '/api/flashcards/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vocabulary_id: currentCard.vocabulary_id, outcome })
+        });
+        let res;
+        try { res = await r.json(); } catch (_) { res = {}; }
+        if (!r.ok) throw new Error(res.detail || r.statusText);
+        setMsg('fc-msg', '已記錄，載入下一張…', false);
+        await loadNextCard(currentCard.vocabulary_id);
+      } catch (err) {
+        setMsg('fc-msg', '送出失敗：' + err.message, true);
+      }
+    });
+
+    // 短語測驗
+    let currentPhraseCard = null;
+    function showPhraseFront(card) {
+      var front = document.getElementById('phrase-card-front');
+      var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
+      var kana = (card.front && card.front.kana) ? card.front.kana : '';
+      if (!kanji && !kana) { kanji = card.back && card.back.kanji ? card.back.kanji : ''; kana = card.back && card.back.kana ? card.back.kana : ''; }
+      var baseUrl = API || window.location.origin || '';
+      var audioUrl = baseUrl + '/api/audio/phrase/' + card.phrase_id;
+      front.innerHTML = '<div class="card-ja" style="font-size:1.4rem; white-space:pre-wrap; word-break:break-word;">' + (kanji || kana || '') + '</div><div class="card-kana" style="font-size:1rem;">' + (kana && kana !== kanji ? kana : '') + '</div><button type="button" class="btn" id="btn-phrase-pronounce">🔊 發音</button>';
+      var btn = document.getElementById('btn-phrase-pronounce');
+      if (btn) {
+        var playing = false;
+        btn.onclick = function(ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (playing) return;
+          playing = true;
+          setTimeout(function() { playing = false; }, 800);
+          var audio = new Audio(audioUrl);
+          audio.play().catch(function() { setMsg('phrase-fc-msg', '無法播放（請確認後端已啟動）', true); });
+        };
+      }
+    }
+    function showPhraseBack(card) {
+      var back = document.getElementById('phrase-card-back');
+      back.innerHTML = '<div class="meaning" style="white-space:pre-wrap; word-break:break-word;">' + (card.back && card.back.meaning ? card.back.meaning : '') + '</div>';
+    }
+    async function loadNextPhraseCard(excludeId) {
+      clearMsg('phrase-fc-msg');
+      var lessonId = document.getElementById('phrase-fc-lesson-id').value;
+      var starred = document.getElementById('phrase-fc-starred').checked;
+      var url = API + '/api/phrases/next?';
+      if (lessonId !== '' && lessonId !== '0') url += 'lesson_id=' + encodeURIComponent(lessonId) + '&';
+      if (starred) url += 'starred_only=true&';
+      if (excludeId != null) url += 'exclude_id=' + encodeURIComponent(excludeId);
+      try {
+        var r = await fetch(url);
+        var d = await r.json().catch(function() { return {}; });
+        if (r.status === 404) {
+          currentPhraseCard = null;
+          document.getElementById('phrase-flashcard-empty').style.display = 'block';
+          document.getElementById('phrase-flashcard-empty').innerHTML = '<p>目前沒有可複習的短語</p><button type="button" class="btn" id="btn-phrase-start">載入</button>';
+          document.getElementById('phrase-flashcard-box').style.display = 'none';
+          setMsg('phrase-fc-msg', '目前沒有可複習的短語', true);
+          var b = document.getElementById('btn-phrase-start');
+          if (b) b.onclick = function() { loadNextPhraseCard(); };
+          return;
+        }
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        if (!d || d.phrase_id == null) throw new Error('卡片資料異常');
+        currentPhraseCard = d;
+        document.getElementById('phrase-flashcard-empty').style.display = 'none';
+        document.getElementById('phrase-flashcard-box').style.display = 'block';
+        document.getElementById('phrase-card-back').style.display = 'none';
+        document.getElementById('phrase-card-actions').style.display = 'none';
+        document.getElementById('btn-phrase-flip').style.display = 'block';
+        showPhraseFront(d);
+        setMsg('phrase-fc-msg', '', false);
+      } catch (e) {
+        setMsg('phrase-fc-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    }
+    function bindPhraseStartBtn() {
+      var btn = document.getElementById('btn-phrase-start');
+      if (btn) btn.onclick = function() { loadNextPhraseCard(); };
+    }
+    bindPhraseStartBtn();
+    document.getElementById('btn-phrase-fc-load').addEventListener('click', function() { loadNextPhraseCard(); });
+    document.getElementById('phrase-flashcard-inner').addEventListener('click', function(ev) {
+      if (!currentPhraseCard || ev.target.closest('[data-outcome]') || ev.target.closest('#btn-phrase-flip')) return;
+      if (document.getElementById('phrase-card-back').style.display === 'none') {
+        showPhraseBack(currentPhraseCard);
+        document.getElementById('phrase-card-back').style.display = 'block';
+        document.getElementById('phrase-card-actions').style.display = 'flex';
+        document.getElementById('btn-phrase-flip').style.display = 'none';
+      }
+    });
+    document.getElementById('btn-phrase-flip').addEventListener('click', function() {
+      if (currentPhraseCard) { showPhraseBack(currentPhraseCard); document.getElementById('phrase-card-back').style.display = 'block'; document.getElementById('phrase-card-actions').style.display = 'flex'; document.getElementById('btn-phrase-flip').style.display = 'none'; }
+    });
+    document.getElementById('phrase-card-actions').addEventListener('click', async function(e) {
+      var btn = e.target.closest('[data-outcome]');
+      if (!btn || !currentPhraseCard) return;
+      var outcome = btn.dataset.outcome;
+      try {
+        var r = await fetch(API + '/api/phrases/review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phrase_id: currentPhraseCard.phrase_id, outcome })
+        });
+        var res = await r.json().catch(function() { return {}; });
+        if (!r.ok) throw new Error(res.detail || r.statusText);
+        setMsg('phrase-fc-msg', '已記錄，載入下一張…', false);
+        await loadNextPhraseCard(currentPhraseCard.phrase_id);
+      } catch (err) {
+        setMsg('phrase-fc-msg', '送出失敗：' + err.message, true);
+      }
+    });
+  </script>
+</body>
+</html>

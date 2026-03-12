@@ -1,0 +1,30 @@
+# 虛擬環境
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 本機 SQLite（部署用 Postgres，不需上傳）
+app_data.db
+*.db
+
+# 環境變數（可能含密碼）
+.env
+.env.local
+
+# 音檔快取（可選，部署後可再生成）
+audio_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

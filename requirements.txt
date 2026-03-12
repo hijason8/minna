@@ -1,0 +1,9 @@
+# 大家的日本語智慧學習 APP - 後端依賴
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+# TTS：日文發音（本地快取不重複呼叫）
+gtts>=2.4.0
