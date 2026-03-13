@@ -17,7 +17,7 @@ def _ensure_lesson_exists(session, lesson_id: int) -> None:
         return
     session.execute(
         text("INSERT INTO lessons (id, youtube_url, lesson_name, created_at) VALUES (:id, :url, :name, :created_at)"),
-        {"id": lesson_id, "url": f"manual://lesson-{lesson_id}", "name": f"手動匯入 Lesson {lesson_id}", "created_at": datetime.utcnow()},
+        {"id": lesson_id, "url": f"manual://lesson-{lesson_id}", "name": f"手動匯入 Lesson {lesson_id}", "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")},
     )
 
 
@@ -51,7 +51,7 @@ def import_phrases_json(items: list[dict[str, Any]]) -> dict[str, Any]:
                     "kana": kana,
                     "meaning": meaning,
                     "is_starred": 1 if is_starred else 0,
-                    "created_at": datetime.utcnow(),
+                    "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                 },
             )
             one = r.mappings().fetchone()

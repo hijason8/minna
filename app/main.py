@@ -197,7 +197,7 @@ def _ensure_lesson_exists(session, lesson_id: int) -> None:
         return
     session.execute(
         text("INSERT INTO lessons (id, youtube_url, lesson_name, created_at) VALUES (:id, :url, :name, :created_at)"),
-        {"id": lesson_id, "url": f"manual://lesson-{lesson_id}", "name": f"手動匯入 Lesson {lesson_id}", "created_at": datetime.utcnow()},
+        {"id": lesson_id, "url": f"manual://lesson-{lesson_id}", "name": f"手動匯入 Lesson {lesson_id}", "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")},
     )
 
 
@@ -296,10 +296,16 @@ async def vocabulary_import_from_text(body: ParseTextBody):
     """
     單字表純文字 → 解析 → 直接寫入 DB（等同 parse + import 一鍵完成）。
     """
-    items, lesson_id = parse_vocabulary_list(body.text, default_lesson_id=body.lesson_id)
+    try:
+        items, lesson_id = parse_vocabulary_list(body.text, default_lesson_id=body.lesson_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
     if not items:
         raise HTTPException(status_code=400, detail="解析後沒有有效單字，請檢查格式")
-    result = import_vocabulary_json(items)
+    try:
+        result = import_vocabulary_json(items)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"寫入資料庫失敗：{str(e)}")
     return {"lesson_id": lesson_id, **result}
 
 
@@ -434,10 +440,16 @@ class PhraseParseBody(BaseModel):
 @app.post("/api/phrases/import-from-text")
 async def phrases_import_from_text(body: PhraseParseBody):
     """短語純文字 → 解析（同單字格式）→ 寫入 phrases 表。"""
-    items, lesson_id = parse_vocabulary_list(body.text or "", default_lesson_id=body.lesson_id)
+    try:
+        items, lesson_id = parse_vocabulary_list(body.text or "", default_lesson_id=body.lesson_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
     if not items:
         raise HTTPException(status_code=400, detail="解析後沒有有效短語，請檢查格式")
-    result = import_phrases_json(items)
+    try:
+        result = import_phrases_json(items)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"寫入資料庫失敗：{str(e)}")
     return {"lesson_id": lesson_id, **result}
 
 

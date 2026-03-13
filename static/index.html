@@ -412,9 +412,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: text, lesson_id: lessonId })
         });
-        let d;
-        try { d = await r.json(); } catch (_) { throw new Error(r.status + ' ' + r.statusText); }
-        if (!r.ok) throw new Error(formatError(d));
+        const bodyText = await r.text();
+        if (!r.ok) {
+          var errMsg = r.status + ' ' + r.statusText;
+          try { var d = JSON.parse(bodyText); errMsg = formatError(d); } catch (_) { if (bodyText) errMsg = bodyText; }
+          throw new Error(errMsg);
+        }
+        var d = JSON.parse(bodyText);
         setMsg('import-msg', '已解析並匯入 ' + (d.imported_count || 0) + ' 筆到課程 ' + (d.lesson_id || lessonId), false);
       } catch (e) {
         setMsg('import-msg', '匯入失敗：' + e.message, true);
@@ -599,8 +603,13 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: text, lesson_id: lessonId })
         });
-        var d = await r.json();
-        if (!r.ok) throw new Error(formatError(d));
+        var bodyText = await r.text();
+        if (!r.ok) {
+          var errMsg = r.status + ' ' + r.statusText;
+          try { var d = JSON.parse(bodyText); errMsg = formatError(d); } catch (_) { if (bodyText) errMsg = bodyText; }
+          throw new Error(errMsg);
+        }
+        var d = JSON.parse(bodyText);
         setMsg('phrase-import-msg', '已解析並匯入 ' + (d.imported_count || 0) + ' 筆短語到課程 ' + (d.lesson_id || lessonId), false);
       } catch (e) {
         setMsg('phrase-import-msg', '匯入失敗：' + e.message, true);
