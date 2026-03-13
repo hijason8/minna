@@ -25,12 +25,36 @@ _engine = _make_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
 
+def _run_tag_migrations() -> None:
+    """
+    為既有 DB 新增標籤相關欄位：tags.name / parent_id、vocabulary.tag_id、phrases.tag_id。
+    若欄位已存在則略過。
+    """
+    session = SessionLocal()
+    try:
+        for stmt in [
+            "ALTER TABLE tags ADD COLUMN name VARCHAR(128)",
+            "ALTER TABLE tags ADD COLUMN parent_id INTEGER REFERENCES tags(id)",
+            "ALTER TABLE vocabulary ADD COLUMN tag_id INTEGER REFERENCES tags(id)",
+            "ALTER TABLE phrases ADD COLUMN tag_id INTEGER REFERENCES tags(id)",
+        ]:
+            try:
+                session.execute(text(stmt))
+                session.commit()
+            except Exception:
+                session.rollback()
+    finally:
+        session.close()
+
+
 def init_db(db_path: Optional[Path] = None) -> None:
     """
     建立所有資料表（若不存在）。
     雲端使用 Postgres 時可忽略 db_path；本地 SQLite 時亦由 database_url 決定路徑。
+    並執行標籤相關欄位遷移。
     """
     Base.metadata.create_all(bind=_engine)
+    _run_tag_migrations()
 
 
 def get_connection() -> Session:

@@ -16,11 +16,22 @@ Outcome = Literal["again", "good", "easy"]
 INTERVAL_DAYS = {"again": 0, "good": 1, "easy": 3}
 
 
-def _build_deck_filter(lesson_id: int | None, starred_only: bool) -> tuple[str, dict[str, Any]]:
-    """組出 WHERE 條件與參數。排除 mastered=1。"""
+def _build_deck_filter(
+    lesson_id: int | None = None,
+    starred_only: bool = False,
+    tag_id: int | None = None,
+    parent_tag_id: int | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """組出 WHERE 條件與參數。排除 mastered=1。優先依 tag_id / parent_tag_id，其次 lesson_id。"""
     conditions = ["(mastered IS NULL OR mastered = 0)"]
     params: dict[str, Any] = {}
-    if lesson_id is not None:
+    if tag_id is not None:
+        conditions.append("tag_id = :tag_id")
+        params["tag_id"] = tag_id
+    elif parent_tag_id is not None:
+        conditions.append("tag_id IN (SELECT id FROM tags WHERE parent_id = :parent_tag_id)")
+        params["parent_tag_id"] = parent_tag_id
+    elif lesson_id is not None:
         conditions.append("lesson_id = :lesson_id")
         params["lesson_id"] = lesson_id
     if starred_only:
@@ -31,11 +42,13 @@ def _build_deck_filter(lesson_id: int | None, starred_only: bool) -> tuple[str, 
 def get_deck(
     lesson_id: int | None = None,
     starred_only: bool = False,
+    tag_id: int | None = None,
+    parent_tag_id: int | None = None,
     card_type: CardType = "ja_to_zh",
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """取得牌組列表。"""
-    where, params = _build_deck_filter(lesson_id, starred_only)
+    where, params = _build_deck_filter(lesson_id=lesson_id, starred_only=starred_only, tag_id=tag_id, parent_tag_id=parent_tag_id)
     params["limit"] = limit
     session = get_connection()
     try:
@@ -45,7 +58,7 @@ def get_deck(
                        next_review_at, interval_days
                 FROM vocabulary
                 WHERE {where}
-                ORDER BY next_review_at IS NULL DESC, next_review_at ASC, id
+                ORDER BY RANDOM()
                 LIMIT :limit
             """),
             params,
@@ -82,11 +95,13 @@ def _format_card(row: dict[str, Any], card_type: CardType) -> dict[str, Any]:
 def get_next_card(
     lesson_id: int | None = None,
     starred_only: bool = False,
+    tag_id: int | None = None,
+    parent_tag_id: int | None = None,
     card_type: CardType = "ja_to_zh",
     exclude_vocabulary_id: int | None = None,
 ) -> dict[str, Any] | None:
     """取得下一張待複習的卡。"""
-    where, params = _build_deck_filter(lesson_id, starred_only)
+    where, params = _build_deck_filter(lesson_id=lesson_id, starred_only=starred_only, tag_id=tag_id, parent_tag_id=parent_tag_id)
     if exclude_vocabulary_id is not None:
         where += " AND id != :exclude_id"
         params["exclude_id"] = exclude_vocabulary_id

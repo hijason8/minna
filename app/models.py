@@ -28,12 +28,13 @@ class Lesson(Base):
 
 
 class Vocabulary(Base):
-    """單字與慣用語（含 TTS 音檔路徑、星標、SRS 欄位）。"""
+    """單字與慣用語（含 TTS 音檔路徑、星標、SRS 欄位）。依 tag_id 歸類題庫。"""
 
     __tablename__ = "vocabulary"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
+    lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)  # 保留相容；篩選以 tag_id 為主時可填 1
+    tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     kanji = Column(String(256), nullable=True)
     kana = Column(String(512), nullable=False)
     meaning = Column(Text, nullable=False)
@@ -47,12 +48,13 @@ class Vocabulary(Base):
 
 
 class Phrase(Base):
-    """短語（格式同單字三欄，句子較長）。"""
+    """短語（格式同單字三欄，句子較長）。依 tag_id 歸類題庫。"""
 
     __tablename__ = "phrases"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     lesson_id = Column(Integer, ForeignKey("lessons.id"), nullable=False)
+    tag_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
     kanji = Column(String(512), nullable=True)
     kana = Column(Text, nullable=False)
     meaning = Column(Text, nullable=False)
@@ -64,16 +66,22 @@ class Phrase(Base):
 
 
 class Tag(Base):
-    """多維度分類標籤。"""
+    """
+    母標籤／子標籤：parent_id 為 NULL 表示母標籤（如 單字、短語、數字），
+    否則為該母標籤下的子標籤。標籤依 name 字母排序。
+    tag_name 保留以相容既有 DB（NOT NULL），新建時與 name 同值。
+    """
 
     __tablename__ = "tags"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    tag_name = Column(String(128), nullable=False, unique=True)
+    name = Column(String(128), nullable=True)  # 遷移後可能為 NULL，新建時必填
+    tag_name = Column(String(128), nullable=True)  # 舊 schema 相容
+    parent_id = Column(Integer, ForeignKey("tags.id"), nullable=True)
 
 
 class LessonTag(Base):
-    """課程與標籤多對多。"""
+    """課程與標籤多對多（文法／課程用）。"""
 
     __tablename__ = "lesson_tags"
 

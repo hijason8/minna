@@ -23,17 +23,23 @@ def _ensure_lesson_exists(session, lesson_id: int) -> None:
     )
 
 
-def import_vocabulary_json(items: list[dict[str, Any]]) -> dict[str, Any]:
+def import_vocabulary_json(
+    items: list[dict[str, Any]],
+    tag_id: int | None = None,
+) -> dict[str, Any]:
     """
     將手動貼上的 JSON 陣列寫入 vocabulary 表。
-    每筆需含：kanji（可空）, kana, meaning, lesson_id；is_starred 可選，預設 False。
+    每筆需含：kanji（可空）, kana, meaning, lesson_id；is_starred 可選。
+    若提供 tag_id 則寫入 tag_id，並以 lesson_id=1 寫入（需存在）。
     """
     init_db()
     session = get_connection()
     inserted_ids = []
     try:
         for row in items:
-            lesson_id = int(row["lesson_id"])
+            lesson_id = int(row.get("lesson_id", 1))
+            if tag_id is not None:
+                lesson_id = 1
             _ensure_lesson_exists(session, lesson_id)
             kanji = (row.get("kanji") or "").strip() or None
             kana = (row.get("kana") or "").strip()
@@ -41,20 +47,23 @@ def import_vocabulary_json(items: list[dict[str, Any]]) -> dict[str, Any]:
             is_starred = bool(row.get("is_starred", False))
             if not kana or not meaning:
                 continue
+            cols = "lesson_id, kanji, kana, meaning, is_starred, weight, interval_days, mastered, created_at"
+            vals = ":lesson_id, :kanji, :kana, :meaning, :is_starred, 0, 0, 0, :created_at"
+            params = {
+                "lesson_id": lesson_id,
+                "kanji": kanji,
+                "kana": kana,
+                "meaning": meaning,
+                "is_starred": 1 if is_starred else 0,
+                "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            if tag_id is not None:
+                cols += ", tag_id"
+                vals += ", :tag_id"
+                params["tag_id"] = tag_id
             r = session.execute(
-                text("""
-                    INSERT INTO vocabulary (lesson_id, kanji, kana, meaning, is_starred, weight, interval_days, mastered, created_at)
-                    VALUES (:lesson_id, :kanji, :kana, :meaning, :is_starred, 0, 0, 0, :created_at)
-                    RETURNING id
-                """),
-                {
-                    "lesson_id": lesson_id,
-                    "kanji": kanji,
-                    "kana": kana,
-                    "meaning": meaning,
-                    "is_starred": 1 if is_starred else 0,
-                    "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                },
+                text(f"INSERT INTO vocabulary ({cols}) VALUES ({vals}) RETURNING id"),
+                params,
             )
             one = r.mappings().fetchone()
             if one:

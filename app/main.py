@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from sqlalchemy import text
 
@@ -33,8 +33,15 @@ from app.services.tts import get_or_create_audio
 from app.services.vocabulary_import import import_vocabulary_json
 from app.services.vocabulary_list_parser import (
     parse_vocabulary_list,
+    split_merged_vocab_phrase,
     get_format_instruction,
     get_standard_llm_prompt,
+)
+from app.services.tag_service import (
+    list_parent_tags,
+    list_child_tags,
+    create_parent_tag,
+    create_child_tag,
 )
 from app.services.flashcards import (
     get_deck,
@@ -277,6 +284,83 @@ class ParseTextBody(BaseModel):
     lesson_id: int = 1
 
 
+class ImportWithTagBody(BaseModel):
+    """合併匯入：單字／短語共用貼文，依標籤寫入。"""
+    text: str = ""
+    vocab_tag_id: int = Field(..., description="單字所屬子標籤 id")
+    phrase_tag_id: int = Field(..., description="短語所屬子標籤 id")
+
+
+@app.get("/api/tags/parents")
+async def api_list_parent_tags():
+    """取得所有母標籤，依 name 排序。"""
+    return {"items": list_parent_tags()}
+
+
+@app.get("/api/tags/children")
+async def api_list_child_tags(parent_id: int = Query(..., description="母標籤 id")):
+    """取得指定母標籤下的子標籤，依 name 排序。"""
+    return {"items": list_child_tags(parent_id)}
+
+
+@app.post("/api/tags/parents")
+async def api_create_parent_tag(body: dict):
+    """新增母標籤。body: {"name": "單字"}"""
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name 不可為空")
+    try:
+        return create_parent_tag(name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/tags/children")
+async def api_create_child_tag(body: dict):
+    """在母標籤下新增子標籤。body: {"parent_id": 1, "name": "第3課"}"""
+    parent_id = body.get("parent_id")
+    name = (body.get("name") or "").strip()
+    if parent_id is None:
+        raise HTTPException(status_code=400, detail="parent_id 必填")
+    if not name:
+        raise HTTPException(status_code=400, detail="name 不可為空")
+    try:
+        return create_child_tag(int(parent_id), name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/import-merged")
+async def import_merged_from_text(body: ImportWithTagBody):
+    """
+    新增題庫：上方貼單字、下方貼短語，中間空一行。
+    依 vocab_tag_id / phrase_tag_id 分別寫入單字與短語。
+    """
+    vocab_text, phrase_text = split_merged_vocab_phrase(body.text or "")
+    vocab_items = []
+    phrase_items = []
+    try:
+        if vocab_text:
+            vocab_items, _ = parse_vocabulary_list(vocab_text, default_lesson_id=1)
+        if phrase_text:
+            phrase_items, _ = parse_vocabulary_list(phrase_text, default_lesson_id=1)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
+    if not vocab_items and not phrase_items:
+        raise HTTPException(status_code=400, detail="解析後沒有有效單字或短語，請檢查格式（上方單字、下方短語、中間空一行）")
+    out = {}
+    try:
+        if vocab_items:
+            r = import_vocabulary_json(vocab_items, tag_id=body.vocab_tag_id)
+            out["vocabulary"] = r
+        if phrase_items:
+            r = import_phrases_json(phrase_items, tag_id=body.phrase_tag_id)
+            out["phrases"] = r
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"寫入資料庫失敗：{str(e)}")
+    return {"vocab_tag_id": body.vocab_tag_id, "phrase_tag_id": body.phrase_tag_id, **out}
+
+
 @app.post("/api/vocabulary/parse")
 async def vocabulary_parse_text(body: ParseTextBody):
     """
@@ -340,12 +424,20 @@ async def vocabulary_import(items: list[VocabularyImportItem]):
 @app.get("/api/vocabulary")
 async def list_vocabulary(
     lesson_id: int | None = Query(None, description="篩選課程 id"),
+    tag_id: int | None = Query(None, description="篩選子標籤 id"),
+    parent_tag_id: int | None = Query(None, description="篩選母標籤 id（該母下所有子標籤）"),
     starred_only: bool = Query(False, description="僅列出 is_starred"),
 ):
-    """列出已匯入的單字／慣用語，可依課程或星標篩選。"""
+    """列出已匯入的單字／慣用語。優先依 tag_id / parent_tag_id，其次 lesson_id。"""
     conditions = []
     params = {}
-    if lesson_id is not None:
+    if tag_id is not None:
+        conditions.append("tag_id = :tag_id")
+        params["tag_id"] = tag_id
+    elif parent_tag_id is not None:
+        conditions.append("tag_id IN (SELECT id FROM tags WHERE parent_id = :parent_tag_id)")
+        params["parent_tag_id"] = parent_tag_id
+    elif lesson_id is not None:
         conditions.append("lesson_id = :lesson_id")
         params["lesson_id"] = lesson_id
     if starred_only:
@@ -355,7 +447,7 @@ async def list_vocabulary(
     session = get_connection()
     try:
         rows = session.execute(
-            text(f"SELECT id, lesson_id, kanji, kana, meaning, is_starred, COALESCE(mastered, 0) AS mastered FROM vocabulary WHERE {where} ORDER BY id"),
+            text(f"SELECT id, lesson_id, COALESCE(tag_id, 0) AS tag_id, kanji, kana, meaning, is_starred, COALESCE(mastered, 0) AS mastered FROM vocabulary WHERE {where} ORDER BY id"),
             params,
         ).mappings().fetchall()
         return {
@@ -363,6 +455,7 @@ async def list_vocabulary(
                 {
                     "id": r["id"],
                     "lesson_id": r["lesson_id"],
+                    "tag_id": r["tag_id"],
                     "kanji": r["kanji"],
                     "kana": r["kana"],
                     "meaning": r["meaning"],
@@ -434,6 +527,18 @@ async def delete_vocabulary_by_lesson(lesson_id: int):
         session.close()
 
 
+@app.delete("/api/vocabulary/tag/{tag_id}")
+async def delete_vocabulary_by_tag(tag_id: int):
+    """刪除該子標籤下全部單字。"""
+    session = get_connection()
+    try:
+        r = session.execute(text("DELETE FROM vocabulary WHERE tag_id = :tag_id"), {"tag_id": tag_id})
+        session.commit()
+        return {"deleted_count": r.rowcount, "tag_id": tag_id}
+    finally:
+        session.close()
+
+
 # --- 短語（格式同單字三欄，句子較長）---
 
 class PhraseParseBody(BaseModel):
@@ -463,12 +568,20 @@ async def phrases_import_from_text(body: PhraseParseBody):
 @app.get("/api/phrases")
 async def list_phrases(
     lesson_id: int | None = Query(None),
+    tag_id: int | None = Query(None),
+    parent_tag_id: int | None = Query(None),
     starred_only: bool = Query(False),
 ):
-    """列出短語，可依課程、星標篩選；星標時排除已淡化。"""
+    """列出短語。優先依 tag_id / parent_tag_id，其次 lesson_id。"""
     conditions = []
     params = {}
-    if lesson_id is not None:
+    if tag_id is not None:
+        conditions.append("tag_id = :tag_id")
+        params["tag_id"] = tag_id
+    elif parent_tag_id is not None:
+        conditions.append("tag_id IN (SELECT id FROM tags WHERE parent_id = :parent_tag_id)")
+        params["parent_tag_id"] = parent_tag_id
+    elif lesson_id is not None:
         conditions.append("lesson_id = :lesson_id")
         params["lesson_id"] = lesson_id
     if starred_only:
@@ -478,7 +591,7 @@ async def list_phrases(
     session = get_connection()
     try:
         rows = session.execute(
-            text(f"SELECT id, lesson_id, kanji, kana, meaning, is_starred, COALESCE(mastered, 0) AS mastered FROM phrases WHERE {where} ORDER BY id"),
+            text(f"SELECT id, lesson_id, COALESCE(tag_id, 0) AS tag_id, kanji, kana, meaning, is_starred, COALESCE(mastered, 0) AS mastered FROM phrases WHERE {where} ORDER BY id"),
             params,
         ).mappings().fetchall()
         return {
@@ -486,6 +599,7 @@ async def list_phrases(
                 {
                     "id": r["id"],
                     "lesson_id": r["lesson_id"],
+                    "tag_id": r["tag_id"],
                     "kanji": r["kanji"],
                     "kana": r["kana"],
                     "meaning": r["meaning"],
@@ -554,14 +668,28 @@ async def delete_phrases_by_lesson(lesson_id: int):
         session.close()
 
 
+@app.delete("/api/phrases/tag/{tag_id}")
+async def delete_phrases_by_tag(tag_id: int):
+    """刪除該子標籤下全部短語。"""
+    session = get_connection()
+    try:
+        r = session.execute(text("DELETE FROM phrases WHERE tag_id = :tag_id"), {"tag_id": tag_id})
+        session.commit()
+        return {"deleted_count": r.rowcount, "tag_id": tag_id}
+    finally:
+        session.close()
+
+
 @app.get("/api/phrases/deck")
 async def api_get_phrase_deck(
     lesson_id: int | None = Query(None),
+    tag_id: int | None = Query(None),
+    parent_tag_id: int | None = Query(None),
     starred_only: bool = Query(False),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(20, ge=1, le=200),
 ):
-    """取得未淡化的短語牌組（隨機 limit 張），供測驗一次抽多張。"""
-    cards = get_phrase_deck(lesson_id=lesson_id, starred_only=starred_only, limit=limit)
+    """取得未淡化的短語牌組（隨機 limit 張）。優先依 tag_id / parent_tag_id。"""
+    cards = get_phrase_deck(lesson_id=lesson_id, starred_only=starred_only, tag_id=tag_id, parent_tag_id=parent_tag_id, limit=limit)
     return {"cards": cards, "count": len(cards)}
 
 
@@ -627,14 +755,14 @@ async def list_starred_vocabulary():
 @app.get("/api/flashcards")
 async def api_get_deck(
     lesson_id: int | None = Query(None, description="篩選課程 id"),
+    tag_id: int | None = Query(None, description="篩選子標籤 id"),
+    parent_tag_id: int | None = Query(None, description="篩選母標籤 id"),
     starred_only: bool = Query(False, description="僅星標＝強化訓練單元"),
     card_type: CardType = Query("ja_to_zh", description="ja_to_zh | zh_to_ja | listening"),
     limit: int = Query(50, ge=1, le=200),
 ):
-    """
-    取得牌組（多張卡）。starred_only=true 即「強化訓練單元」。
-    """
-    cards = get_deck(lesson_id=lesson_id, starred_only=starred_only, card_type=card_type, limit=limit)
+    """取得牌組（多張卡）。優先依 tag_id / parent_tag_id，其次 lesson_id。"""
+    cards = get_deck(lesson_id=lesson_id, starred_only=starred_only, tag_id=tag_id, parent_tag_id=parent_tag_id, card_type=card_type, limit=limit)
     return {"cards": cards, "count": len(cards)}
 
 

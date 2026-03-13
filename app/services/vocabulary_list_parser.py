@@ -101,6 +101,27 @@ def parse_vocabulary_list(text: str, default_lesson_id: int = 1) -> tuple[list[d
     return items, lesson_id
 
 
+def split_merged_vocab_phrase(text: str) -> tuple[str, str]:
+    """
+    將「上方單字、下方短語、中間空一行」的貼文分割成兩段文字。
+    回傳 (單字區塊文字, 短語區塊文字)；若只有一段則短語區塊為空字串。
+    """
+    blocks = []
+    current: list[str] = []
+    for line in text.splitlines():
+        if line.strip() == "":
+            if current:
+                blocks.append("\n".join(current))
+                current = []
+        else:
+            current.append(line)
+    if current:
+        blocks.append("\n".join(current))
+    vocab_text = blocks[0] if len(blocks) >= 1 else ""
+    phrase_text = blocks[1] if len(blocks) >= 2 else ""
+    return vocab_text, phrase_text
+
+
 def get_format_instruction() -> str:
     """回傳給 LLM 或使用者的「單字表格式說明」，與前端提示詞一致。"""
     return """【輸出規則】

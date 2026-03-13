@@ -12,10 +12,21 @@ Outcome = Literal["again", "good", "easy"]
 INTERVAL_DAYS = {"again": 0, "good": 1, "easy": 3}
 
 
-def _build_filter(lesson_id: int | None, starred_only: bool) -> tuple[str, dict[str, Any]]:
+def _build_filter(
+    lesson_id: int | None = None,
+    starred_only: bool = False,
+    tag_id: int | None = None,
+    parent_tag_id: int | None = None,
+) -> tuple[str, dict[str, Any]]:
     conditions = ["(mastered IS NULL OR mastered = 0)"]
     params: dict[str, Any] = {}
-    if lesson_id is not None:
+    if tag_id is not None:
+        conditions.append("tag_id = :tag_id")
+        params["tag_id"] = tag_id
+    elif parent_tag_id is not None:
+        conditions.append("tag_id IN (SELECT id FROM tags WHERE parent_id = :parent_tag_id)")
+        params["parent_tag_id"] = parent_tag_id
+    elif lesson_id is not None:
         conditions.append("lesson_id = :lesson_id")
         params["lesson_id"] = lesson_id
     if starred_only:
@@ -26,10 +37,12 @@ def _build_filter(lesson_id: int | None, starred_only: bool) -> tuple[str, dict[
 def get_phrase_deck(
     lesson_id: int | None = None,
     starred_only: bool = False,
+    tag_id: int | None = None,
+    parent_tag_id: int | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """取得未淡化的短語牌組（隨機 limit 張），不依 SRS 到期。"""
-    where, params = _build_filter(lesson_id, starred_only)
+    where, params = _build_filter(lesson_id=lesson_id, starred_only=starred_only, tag_id=tag_id, parent_tag_id=parent_tag_id)
     params["limit"] = limit
     session = get_connection()
     try:
@@ -63,9 +76,11 @@ def get_phrase_deck(
 def get_next_phrase(
     lesson_id: int | None = None,
     starred_only: bool = False,
+    tag_id: int | None = None,
+    parent_tag_id: int | None = None,
     exclude_phrase_id: int | None = None,
 ) -> dict[str, Any] | None:
-    where, params = _build_filter(lesson_id, starred_only)
+    where, params = _build_filter(lesson_id=lesson_id, starred_only=starred_only, tag_id=tag_id, parent_tag_id=parent_tag_id)
     if exclude_phrase_id is not None:
         where += " AND id != :exclude_id"
         params["exclude_id"] = exclude_phrase_id
