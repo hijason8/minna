@@ -41,8 +41,8 @@ def import_phrases_json(items: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             r = session.execute(
                 text("""
-                    INSERT INTO phrases (lesson_id, kanji, kana, meaning, is_starred, created_at)
-                    VALUES (:lesson_id, :kanji, :kana, :meaning, :is_starred, :created_at)
+                    INSERT INTO phrases (lesson_id, kanji, kana, meaning, is_starred, mastered, interval_days, created_at)
+                    VALUES (:lesson_id, :kanji, :kana, :meaning, :is_starred, 0, 0, :created_at)
                     RETURNING id
                 """),
                 {

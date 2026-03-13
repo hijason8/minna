@@ -43,8 +43,8 @@ def import_vocabulary_json(items: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             r = session.execute(
                 text("""
-                    INSERT INTO vocabulary (lesson_id, kanji, kana, meaning, is_starred, weight, created_at)
-                    VALUES (:lesson_id, :kanji, :kana, :meaning, :is_starred, 0, :created_at)
+                    INSERT INTO vocabulary (lesson_id, kanji, kana, meaning, is_starred, weight, interval_days, mastered, created_at)
+                    VALUES (:lesson_id, :kanji, :kana, :meaning, :is_starred, 0, 0, 0, :created_at)
                     RETURNING id
                 """),
                 {
