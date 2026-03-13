@@ -285,10 +285,9 @@ class ParseTextBody(BaseModel):
 
 
 class ImportWithTagBody(BaseModel):
-    """合併匯入：單字／短語共用貼文，依標籤寫入。"""
+    """合併匯入：單字／短語共用貼文，依同一子標籤寫入（由母標籤決定題庫類型）。"""
     text: str = ""
-    vocab_tag_id: int = Field(..., description="單字所屬子標籤 id")
-    phrase_tag_id: int = Field(..., description="短語所屬子標籤 id")
+    tag_id: int = Field(..., description="所屬子標籤 id，單字與短語皆寫入此題庫")
 
 
 @app.get("/api/tags/parents")
@@ -334,7 +333,7 @@ async def api_create_child_tag(body: dict):
 async def import_merged_from_text(body: ImportWithTagBody):
     """
     新增題庫：上方貼單字、下方貼短語，中間空一行。
-    依 vocab_tag_id / phrase_tag_id 分別寫入單字與短語。
+    單字與短語皆寫入同一子標籤（由母標籤決定題庫）。
     """
     vocab_text, phrase_text = split_merged_vocab_phrase(body.text or "")
     vocab_items = []
@@ -351,14 +350,14 @@ async def import_merged_from_text(body: ImportWithTagBody):
     out = {}
     try:
         if vocab_items:
-            r = import_vocabulary_json(vocab_items, tag_id=body.vocab_tag_id)
+            r = import_vocabulary_json(vocab_items, tag_id=body.tag_id)
             out["vocabulary"] = r
         if phrase_items:
-            r = import_phrases_json(phrase_items, tag_id=body.phrase_tag_id)
+            r = import_phrases_json(phrase_items, tag_id=body.tag_id)
             out["phrases"] = r
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"寫入資料庫失敗：{str(e)}")
-    return {"vocab_tag_id": body.vocab_tag_id, "phrase_tag_id": body.phrase_tag_id, **out}
+    return {"tag_id": body.tag_id, **out}
 
 
 @app.post("/api/vocabulary/parse")
