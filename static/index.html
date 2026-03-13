@@ -320,8 +320,8 @@
 
   <script>
     // 從 file:// 開頁面時需指定後端網址；從同源開則留空
-    const API = (window.location.protocol === 'file:' || window.location.port !== '8000')
-      ? 'http://localhost:8000' : '';
+    // 從 file:// 開頁面時才指到本機後端；從網址開（含部署站）一律用同源
+    const API = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
     function setMsg(elId, text, isErr) {
       const el = document.getElementById(elId);
       if (!el) return;
