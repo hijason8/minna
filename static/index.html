@@ -266,7 +266,7 @@
         </div>
         <div id="flashcard-area" class="card-ui">
           <div id="flashcard-empty" class="empty">
-            <p>點「載入」抽第一張，答題後會自動跳下一張</p>
+            <p>點「載入」抽 20 張未淡化單字，答題後會自動跳下一張；困難／簡單會即時反映在清單。</p>
             <button type="button" class="btn" id="btn-start">載入</button>
           </div>
           <div id="flashcard-box" style="display:none;">
@@ -297,7 +297,7 @@
         </div>
         <div id="phrase-flashcard-area" class="card-ui">
           <div id="phrase-flashcard-empty" class="empty">
-            <p>點「載入」抽第一張短語，答題後會自動跳下一張</p>
+            <p>點「載入」抽 20 張未淡化短語，答題後會自動跳下一張。</p>
             <button type="button" class="btn" id="btn-phrase-start">載入</button>
           </div>
           <div id="phrase-flashcard-box" style="display:none;">
@@ -757,50 +757,73 @@
       if (currentCard) showCardBack(currentCard);
     });
 
-    /** 載入下一張卡（開始按鈕與答題後自動呼叫）。excludeId 可排除剛答過的那張，避免「困難」後又抽到同一張。 */
-    async function loadNextCard(excludeId) {
+    var currentDeck = [];
+    var currentDeckIndex = 0;
+    /** 載入 20 張未淡化單字，從第一張開始；答題後從牌組依序下一張，不依 SRS。 */
+    async function loadVocabDeck() {
       clearMsg('fc-msg');
       var lessonIdEl = document.getElementById('fc-lesson-id');
       var starredEl = document.getElementById('fc-starred');
       var lessonId = lessonIdEl ? lessonIdEl.value : '';
       var starred = starredEl ? starredEl.checked : false;
-      var url = API + '/api/flashcards/next?card_type=ja_to_zh';
+      var url = API + '/api/flashcards?card_type=ja_to_zh&limit=20';
       if (lessonId !== '' && lessonId !== '0') url += '&lesson_id=' + encodeURIComponent(lessonId);
       if (starred) url += '&starred_only=true';
-      if (excludeId != null) url += '&exclude_id=' + encodeURIComponent(excludeId);
       try {
         var r = await fetch(url);
         var d;
         try { d = await r.json(); } catch (_) { d = {}; }
-        if (r.status === 404) {
+        if (!r.ok) throw new Error((d && d.detail) ? (Array.isArray(d.detail) ? d.detail[0].msg : d.detail) : r.statusText);
+        var cards = (d && d.cards) ? d.cards : [];
+        if (cards.length === 0) {
           currentCard = null;
+          currentDeck = [];
           var emptyEl = document.getElementById('flashcard-empty');
           var boxEl = document.getElementById('flashcard-box');
-          if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.innerHTML = '<p>目前沒有可複習的卡片</p><button type="button" class="btn" id="btn-start">載入</button>'; }
+          if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.innerHTML = '<p>目前沒有未淡化的單字可測驗</p><button type="button" class="btn" id="btn-start">載入</button>'; }
           if (boxEl) boxEl.style.display = 'none';
           setMsg('fc-msg', '目前沒有可複習的卡片', true);
           bindStartBtn();
           return;
         }
-        if (!r.ok) throw new Error((d && d.detail) ? (Array.isArray(d.detail) ? d.detail[0].msg : d.detail) : r.statusText);
-        if (!d || d.vocabulary_id == null) throw new Error('卡片資料異常');
-        currentCard = d;
-        var emptyEl2 = document.getElementById('flashcard-empty');
-        var boxEl2 = document.getElementById('flashcard-box');
-        if (emptyEl2) emptyEl2.style.display = 'none';
-        if (boxEl2) boxEl2.style.display = 'block';
-        showCardFront(d);
-        setMsg('fc-msg', '', false);
+        currentDeck = cards;
+        currentDeckIndex = 0;
+        currentCard = currentDeck[0];
+        document.getElementById('flashcard-empty').style.display = 'none';
+        document.getElementById('flashcard-box').style.display = 'block';
+        document.getElementById('card-back').style.display = 'none';
+        document.getElementById('card-actions').style.display = 'none';
+        document.getElementById('btn-flip').style.display = 'block';
+        showCardFront(currentCard);
+        setMsg('fc-msg', '第 1 / ' + currentDeck.length + ' 張', false);
       } catch (e) {
         setMsg('fc-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     }
+    function showNextVocabInDeck() {
+      currentDeckIndex++;
+      if (currentDeckIndex < currentDeck.length) {
+        currentCard = currentDeck[currentDeckIndex];
+        document.getElementById('card-back').style.display = 'none';
+        document.getElementById('card-actions').style.display = 'none';
+        document.getElementById('btn-flip').style.display = 'block';
+        showCardFront(currentCard);
+        setMsg('fc-msg', '第 ' + (currentDeckIndex + 1) + ' / ' + currentDeck.length + ' 張', false);
+      } else {
+        currentCard = null;
+        document.getElementById('flashcard-empty').style.display = 'block';
+        document.getElementById('flashcard-empty').innerHTML = '<p>本次完成（共 ' + currentDeck.length + ' 張）。困難／簡單已反映在單字清單。</p><button type="button" class="btn" id="btn-start">再載入 20 張</button>';
+        document.getElementById('flashcard-box').style.display = 'none';
+        setMsg('fc-msg', '本次完成', false);
+        bindStartBtn();
+      }
+    }
     function bindStartBtn() {
       var btn = document.getElementById('btn-start');
-      if (btn) btn.onclick = function() { loadNextCard(); };
+      if (btn) btn.onclick = function() { loadVocabDeck(); };
     }
     bindStartBtn();
-    document.getElementById('btn-fc-load').addEventListener('click', function() { loadNextCard(); });
+    document.getElementById('btn-fc-load').addEventListener('click', function() { loadVocabDeck(); });
 
     document.getElementById('flashcard-inner').addEventListener('click', (e) => {
       if (!currentCard || e.target.closest('[data-outcome]') || e.target.closest('#btn-flip') || e.target.closest('#btn-play-pronounce')) return;
@@ -821,8 +844,8 @@
         let res;
         try { res = await r.json(); } catch (_) { res = {}; }
         if (!r.ok) throw new Error(res.detail || r.statusText);
-        setMsg('fc-msg', '已記錄，載入下一張…', false);
-        await loadNextCard(currentCard.vocabulary_id);
+        setMsg('fc-msg', '已記錄（困難／簡單會反映在清單）', false);
+        showNextVocabInDeck();
       } catch (err) {
         setMsg('fc-msg', '送出失敗：' + err.message, true);
       }
@@ -830,6 +853,8 @@
 
     // 短語測驗
     let currentPhraseCard = null;
+    var currentPhraseDeck = [];
+    var currentPhraseDeckIndex = 0;
     function showPhraseFront(card) {
       var front = document.getElementById('phrase-card-front');
       var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
@@ -856,47 +881,69 @@
       var back = document.getElementById('phrase-card-back');
       back.innerHTML = '<div class="meaning" style="white-space:pre-wrap; word-break:break-word;">' + (card.back && card.back.meaning ? card.back.meaning : '') + '</div>';
     }
-    async function loadNextPhraseCard(excludeId) {
+    /** 載入 20 張未淡化短語，答題後依序下一張。 */
+    async function loadPhraseDeck() {
       clearMsg('phrase-fc-msg');
       var lessonId = document.getElementById('phrase-fc-lesson-id').value;
       var starred = document.getElementById('phrase-fc-starred').checked;
-      var url = API + '/api/phrases/next?';
-      if (lessonId !== '' && lessonId !== '0') url += 'lesson_id=' + encodeURIComponent(lessonId) + '&';
-      if (starred) url += 'starred_only=true&';
-      if (excludeId != null) url += 'exclude_id=' + encodeURIComponent(excludeId);
+      var url = API + '/api/phrases/deck?limit=20';
+      if (lessonId !== '' && lessonId !== '0') url += '&lesson_id=' + encodeURIComponent(lessonId);
+      if (starred) url += '&starred_only=true';
       try {
         var r = await fetch(url);
         var d = await r.json().catch(function() { return {}; });
-        if (r.status === 404) {
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        var cards = (d && d.cards) ? d.cards : [];
+        if (cards.length === 0) {
           currentPhraseCard = null;
+          currentPhraseDeck = [];
           document.getElementById('phrase-flashcard-empty').style.display = 'block';
-          document.getElementById('phrase-flashcard-empty').innerHTML = '<p>目前沒有可複習的短語</p><button type="button" class="btn" id="btn-phrase-start">載入</button>';
+          document.getElementById('phrase-flashcard-empty').innerHTML = '<p>目前沒有未淡化的短語可測驗</p><button type="button" class="btn" id="btn-phrase-start">載入</button>';
           document.getElementById('phrase-flashcard-box').style.display = 'none';
           setMsg('phrase-fc-msg', '目前沒有可複習的短語', true);
           var b = document.getElementById('btn-phrase-start');
-          if (b) b.onclick = function() { loadNextPhraseCard(); };
+          if (b) b.onclick = function() { loadPhraseDeck(); };
           return;
         }
-        if (!r.ok) throw new Error(d.detail || r.statusText);
-        if (!d || d.phrase_id == null) throw new Error('卡片資料異常');
-        currentPhraseCard = d;
+        currentPhraseDeck = cards;
+        currentPhraseDeckIndex = 0;
+        currentPhraseCard = currentPhraseDeck[0];
         document.getElementById('phrase-flashcard-empty').style.display = 'none';
         document.getElementById('phrase-flashcard-box').style.display = 'block';
         document.getElementById('phrase-card-back').style.display = 'none';
         document.getElementById('phrase-card-actions').style.display = 'none';
         document.getElementById('btn-phrase-flip').style.display = 'block';
-        showPhraseFront(d);
-        setMsg('phrase-fc-msg', '', false);
+        showPhraseFront(currentPhraseCard);
+        setMsg('phrase-fc-msg', '第 1 / ' + currentPhraseDeck.length + ' 張', false);
       } catch (e) {
         setMsg('phrase-fc-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     }
+    function showNextPhraseInDeck() {
+      currentPhraseDeckIndex++;
+      if (currentPhraseDeckIndex < currentPhraseDeck.length) {
+        currentPhraseCard = currentPhraseDeck[currentPhraseDeckIndex];
+        document.getElementById('phrase-card-back').style.display = 'none';
+        document.getElementById('phrase-card-actions').style.display = 'none';
+        document.getElementById('btn-phrase-flip').style.display = 'block';
+        showPhraseFront(currentPhraseCard);
+        setMsg('phrase-fc-msg', '第 ' + (currentPhraseDeckIndex + 1) + ' / ' + currentPhraseDeck.length + ' 張', false);
+      } else {
+        currentPhraseCard = null;
+        document.getElementById('phrase-flashcard-empty').style.display = 'block';
+        document.getElementById('phrase-flashcard-empty').innerHTML = '<p>本次完成（共 ' + currentPhraseDeck.length + ' 張）</p><button type="button" class="btn" id="btn-phrase-start">再載入 20 張</button>';
+        document.getElementById('phrase-flashcard-box').style.display = 'none';
+        setMsg('phrase-fc-msg', '本次完成', false);
+        var b = document.getElementById('btn-phrase-start');
+        if (b) b.onclick = function() { loadPhraseDeck(); };
+      }
+    }
     function bindPhraseStartBtn() {
       var btn = document.getElementById('btn-phrase-start');
-      if (btn) btn.onclick = function() { loadNextPhraseCard(); };
+      if (btn) btn.onclick = function() { loadPhraseDeck(); };
     }
     bindPhraseStartBtn();
-    document.getElementById('btn-phrase-fc-load').addEventListener('click', function() { loadNextPhraseCard(); });
+    document.getElementById('btn-phrase-fc-load').addEventListener('click', function() { loadPhraseDeck(); });
     document.getElementById('phrase-flashcard-inner').addEventListener('click', function(ev) {
       if (!currentPhraseCard || ev.target.closest('[data-outcome]') || ev.target.closest('#btn-phrase-flip')) return;
       if (document.getElementById('phrase-card-back').style.display === 'none') {
@@ -921,8 +968,8 @@
         });
         var res = await r.json().catch(function() { return {}; });
         if (!r.ok) throw new Error(res.detail || r.statusText);
-        setMsg('phrase-fc-msg', '已記錄，載入下一張…', false);
-        await loadNextPhraseCard(currentPhraseCard.phrase_id);
+        setMsg('phrase-fc-msg', '已記錄', false);
+        showNextPhraseInDeck();
       } catch (err) {
         setMsg('phrase-fc-msg', '送出失敗：' + err.message, true);
       }

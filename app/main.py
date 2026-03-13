@@ -46,6 +46,7 @@ from app.services.flashcards import (
 from app.services.phrase_import import import_phrases_json
 from app.services.phrases_flashcards import (
     get_next_phrase,
+    get_phrase_deck,
     record_phrase_review,
 )
 
@@ -297,11 +298,14 @@ async def vocabulary_import_from_text(body: ParseTextBody):
     單字表純文字 → 解析 → 直接寫入 DB（等同 parse + import 一鍵完成）。
     """
     try:
-        items, lesson_id = parse_vocabulary_list(body.text, default_lesson_id=body.lesson_id)
+        items, _ = parse_vocabulary_list(body.text, default_lesson_id=body.lesson_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
     if not items:
         raise HTTPException(status_code=400, detail="解析後沒有有效單字，請檢查格式")
+    lesson_id = body.lesson_id
+    for it in items:
+        it["lesson_id"] = lesson_id
     try:
         result = import_vocabulary_json(items)
     except Exception as e:
@@ -441,11 +445,14 @@ class PhraseParseBody(BaseModel):
 async def phrases_import_from_text(body: PhraseParseBody):
     """短語純文字 → 解析（同單字格式）→ 寫入 phrases 表。"""
     try:
-        items, lesson_id = parse_vocabulary_list(body.text or "", default_lesson_id=body.lesson_id)
+        items, _ = parse_vocabulary_list(body.text or "", default_lesson_id=body.lesson_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
     if not items:
         raise HTTPException(status_code=400, detail="解析後沒有有效短語，請檢查格式")
+    lesson_id = body.lesson_id
+    for it in items:
+        it["lesson_id"] = lesson_id
     try:
         result = import_phrases_json(items)
     except Exception as e:
@@ -545,6 +552,17 @@ async def delete_phrases_by_lesson(lesson_id: int):
         return {"deleted_count": r.rowcount, "lesson_id": lesson_id}
     finally:
         session.close()
+
+
+@app.get("/api/phrases/deck")
+async def api_get_phrase_deck(
+    lesson_id: int | None = Query(None),
+    starred_only: bool = Query(False),
+    limit: int = Query(20, ge=1, le=50),
+):
+    """取得未淡化的短語牌組（隨機 limit 張），供測驗一次抽多張。"""
+    cards = get_phrase_deck(lesson_id=lesson_id, starred_only=starred_only, limit=limit)
+    return {"cards": cards, "count": len(cards)}
 
 
 @app.get("/api/phrases/next")

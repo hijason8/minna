@@ -23,6 +23,43 @@ def _build_filter(lesson_id: int | None, starred_only: bool) -> tuple[str, dict[
     return " AND ".join(conditions), params
 
 
+def get_phrase_deck(
+    lesson_id: int | None = None,
+    starred_only: bool = False,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """取得未淡化的短語牌組（隨機 limit 張），不依 SRS 到期。"""
+    where, params = _build_filter(lesson_id, starred_only)
+    params["limit"] = limit
+    session = get_connection()
+    try:
+        rows = session.execute(
+            text(f"""
+                SELECT id, lesson_id, kanji, kana, meaning, is_starred,
+                       next_review_at, interval_days
+                FROM phrases
+                WHERE {where}
+                ORDER BY RANDOM()
+                LIMIT :limit
+            """),
+            params,
+        ).mappings().fetchall()
+        return [
+            {
+                "phrase_id": r["id"],
+                "lesson_id": r["lesson_id"],
+                "is_starred": bool(r["is_starred"]),
+                "interval_days": r["interval_days"] or 0,
+                "next_review_at": r["next_review_at"],
+                "front": {"kanji": r["kanji"] or "", "kana": r["kana"] or ""},
+                "back": {"meaning": r["meaning"] or ""},
+            }
+            for r in rows
+        ]
+    finally:
+        session.close()
+
+
 def get_next_phrase(
     lesson_id: int | None = None,
     starred_only: bool = False,
