@@ -155,8 +155,7 @@
       <button type="button" class="active" data-tab="grammar">文法</button>
       <button type="button" data-tab="import-merged">新增題庫</button>
       <button type="button" data-tab="deck-list">題庫清單</button>
-      <button type="button" data-tab="flashcard">單字測驗</button>
-      <button type="button" data-tab="phrase-flashcard">短語測驗</button>
+      <button type="button" data-tab="quiz">測驗</button>
     </nav>
 
     <!-- 文法 -->
@@ -184,21 +183,19 @@
       </div>
     </section>
 
-    <!-- 新增題庫（由母標籤決定題庫；上方單字、下方短語、中間空一行） -->
+    <!-- 新增題庫（上方單字、下方短語，中間空一行） -->
     <section id="panel-import-merged" class="panel">
       <div class="card-ui">
-        <label>母標籤／子標籤（可先新增再選擇）</label>
         <div class="filters">
-          <span>新增母標籤</span>
-          <input type="text" id="new-parent-name" placeholder="例：大家的日本語、數字" style="max-width:10rem;" />
-          <button type="button" class="btn btn-sm" id="btn-add-parent">新增</button>
-        </div>
-        <div class="filters" style="margin-top:0.5rem;">
           <label>所屬題庫</label>
           <select id="merged-parent"></select>
           <select id="merged-child"></select>
-          <input type="text" id="new-child-name" placeholder="新子標籤" style="max-width:8rem;" />
-          <button type="button" class="btn btn-sm" id="btn-add-merged-child">新增子標籤</button>
+          <span style="margin-left:0.5rem;">母</span>
+          <input type="text" id="new-parent-name" placeholder="名稱" style="max-width:6rem;" />
+          <button type="button" class="btn btn-sm" id="btn-add-parent">新增</button>
+          <span style="margin-left:0.5rem;">子</span>
+          <input type="text" id="new-child-name" placeholder="名稱" style="max-width:6rem;" />
+          <button type="button" class="btn btn-sm" id="btn-add-merged-child">新增</button>
         </div>
       </div>
       <div class="card-ui">
@@ -216,7 +213,7 @@
       </div>
       <div class="card-ui prompt-block">
         <label>貼給 Web LLM 的提示詞（預覽＝複製內容）</label>
-        <p class="msg hint">輸入網址後預覽即時更新；複製後貼到 Web LLM，產出單字＋短語（上方單字、下方短語、中間空一行）。</p>
+        <p class="msg hint">輸入網址後預覽即時更新；複製後貼到 Web LLM，請其依「上部分單字、下部分短語、中間斷行」輸出。</p>
         <label for="merged-import-url">網址（選填）</label>
         <input type="text" id="merged-import-url" placeholder="https://youtu.be/..." style="max-width:100%;" />
         <button type="button" class="btn" id="btn-copy-merged-prompt">複製生成提示詞</button>
@@ -235,7 +232,6 @@
           <label><input type="checkbox" id="deck-list-starred" /> 星標</label>
           <button type="button" class="btn" id="btn-deck-list-load">載入</button>
           <button type="button" class="btn btn-outline" id="btn-deck-list-delete" title="刪除所選子標籤的全部單字與短語" style="display:none;">刪除本題庫全部</button>
-          <button type="button" class="btn btn-outline" id="btn-deck-list-clear-legacy" title="刪除母標籤規則前建立的單字與短語（無標籤的舊資料）">清除舊資料（無標籤）</button>
         </div>
         <div id="deck-list-vocab-wrap"></div>
         <div id="deck-list-phrase-wrap" style="margin-top:1rem;"></div>
@@ -243,71 +239,37 @@
       </div>
     </section>
 
-    <!-- 單字測驗 -->
-    <section id="panel-flashcard" class="panel">
+    <!-- 測驗（依題庫抽單字＋短語） -->
+    <section id="panel-quiz" class="panel">
       <div class="card-ui">
         <div class="filters">
           <label>題庫</label>
-          <select id="fc-parent-tag"></select>
-          <select id="fc-child-tag"></select>
-          <label><input type="checkbox" id="fc-starred" /> 星標</label>
+          <select id="quiz-parent-tag"></select>
+          <select id="quiz-child-tag"></select>
+          <label><input type="checkbox" id="quiz-starred" /> 星標</label>
           <label>本次題數</label>
-          <input type="number" id="fc-limit" value="20" min="1" max="200" style="max-width:5rem;" />
-          <button type="button" class="btn" id="btn-fc-load">載入</button>
+          <input type="number" id="quiz-limit" value="20" min="1" max="200" style="max-width:5rem;" />
+          <button type="button" class="btn" id="btn-quiz-load">載入</button>
         </div>
-        <div id="flashcard-area" class="card-ui">
-          <div id="flashcard-empty" class="empty">
-            <p>選擇題庫（課程 id／星標）與本次題數後點「載入」，亂數抽未淡化單字；困難／簡單會即時反映在清單。</p>
-            <button type="button" class="btn" id="btn-start">載入</button>
+        <div id="quiz-area" class="card-ui">
+          <div id="quiz-empty" class="empty">
+            <p>選擇題庫與本次題數後點「載入」，亂數抽未淡化單字與短語。</p>
+            <button type="button" class="btn" id="btn-quiz-start">載入</button>
           </div>
-          <div id="flashcard-box" style="display:none;">
-            <div class="flashcard" id="flashcard-inner">
-              <div id="card-front" class="front"></div>
-              <div id="card-back" class="back" style="display:none;"></div>
-              <button type="button" class="btn btn-outline" id="btn-flip" style="display:none; margin-top:1rem;">翻面</button>
+          <div id="quiz-box" style="display:none;">
+            <div class="flashcard" id="quiz-inner">
+              <div id="quiz-front" class="front"></div>
+              <div id="quiz-back" class="back" style="display:none;"></div>
+              <button type="button" class="btn btn-outline" id="btn-quiz-flip" style="display:none; margin-top:1rem;">翻面</button>
             </div>
-            <div class="flashcard-actions" id="card-actions" style="display:none;">
+            <div class="flashcard-actions" id="quiz-actions" style="display:none;">
               <button type="button" class="btn btn-again" data-outcome="again">困難</button>
               <button type="button" class="btn btn-good" data-outcome="good">保留</button>
               <button type="button" class="btn btn-easy" data-outcome="easy">簡單</button>
             </div>
           </div>
         </div>
-        <p id="fc-msg" class="msg"></p>
-      </div>
-    </section>
-
-    <!-- 短語測驗 -->
-    <section id="panel-phrase-flashcard" class="panel">
-      <div class="card-ui">
-        <div class="filters">
-          <label>題庫</label>
-          <select id="phrase-fc-parent-tag"></select>
-          <select id="phrase-fc-child-tag"></select>
-          <label><input type="checkbox" id="phrase-fc-starred" /> 星標</label>
-          <label>本次題數</label>
-          <input type="number" id="phrase-fc-limit" value="20" min="1" max="200" style="max-width:5rem;" />
-          <button type="button" class="btn" id="btn-phrase-fc-load">載入</button>
-        </div>
-        <div id="phrase-flashcard-area" class="card-ui">
-          <div id="phrase-flashcard-empty" class="empty">
-            <p>選擇題庫與本次題數後點「載入」，亂數抽未淡化短語。</p>
-            <button type="button" class="btn" id="btn-phrase-start">載入</button>
-          </div>
-          <div id="phrase-flashcard-box" style="display:none;">
-            <div class="flashcard" id="phrase-flashcard-inner">
-              <div id="phrase-card-front" class="front"></div>
-              <div id="phrase-card-back" class="back" style="display:none;"></div>
-              <button type="button" class="btn btn-outline" id="btn-phrase-flip" style="display:none; margin-top:1rem;">翻面</button>
-            </div>
-            <div class="flashcard-actions" id="phrase-card-actions" style="display:none;">
-              <button type="button" class="btn btn-again" data-outcome="again">困難</button>
-              <button type="button" class="btn btn-good" data-outcome="good">保留</button>
-              <button type="button" class="btn btn-easy" data-outcome="easy">簡單</button>
-            </div>
-          </div>
-        </div>
-        <p id="phrase-fc-msg" class="msg"></p>
+        <p id="quiz-msg" class="msg"></p>
       </div>
     </section>
   </div>
@@ -339,10 +301,8 @@
 
     // 文法／單字／短語：預覽＝複製內容，統一邏輯
     var GRAMMAR_PROMPT_TEXT = '你是一位日文教材編輯。請根據我提供的網址或課文內容，整理「本課文法重點」。\n請條列式輸出，每條可包含：文法項目、例句、簡短說明。不要輸出多餘說明，只輸出文法重點內容。\n';
-    var VOCAB_PROMPT_PREFIX = '請根據以下網址，整理本課單字。\n【網址】\n';
-    var VOCAB_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號。\n\n【範例格式】\nロビー||大廳\nへや|部屋|房間\nトイレ||廁所\nおてあらい|お手洗い|洗手間（較委婉）';
-    var PHRASE_PROMPT_PREFIX = '請根據以下網址，尋找課程中會話及短語。\n【網址】\n';
-    var PHRASE_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號、不要時間戳。\n\n【範例】\nいらっしゃいませ||歡迎光臨（店員對客人）\n[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]\nじゃ||那麼...（用於決定買下某物時）';
+    var MERGED_PROMPT_PREFIX = '請根據以下網址，整理本課單字與短語，呈現需要明確區分兩部分，上部分為單字，下部分為短語，中間用斷行區隔。\n\n【網址】\n';
+    var MERGED_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號。\n\n【範例格式】\nロビー||大廳\nへや|部屋|房間\nトイレ||廁所\nおてあらい|お手洗い|洗手間（較委婉）\n\nいらっしゃいませ||歡迎光臨（店員對客人）\n[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]\nじゃ||那麼...（用於決定買下某物時）';
 
     function updateGrammarPreview() {
       var el = document.getElementById('grammar-prompt-preview');
@@ -352,7 +312,7 @@
       var urlEl = document.getElementById('merged-import-url');
       var url = (urlEl && urlEl.value) ? urlEl.value.trim() : '';
       url = url || '[請在此貼上網址]';
-      return VOCAB_PROMPT_PREFIX + url + VOCAB_PROMPT_RULES + '\n\n' + PHRASE_PROMPT_PREFIX + url + PHRASE_PROMPT_RULES;
+      return MERGED_PROMPT_PREFIX + url + MERGED_PROMPT_RULES;
     }
     function updateMergedPreview() {
       var el = document.getElementById('merged-prompt-preview');
@@ -411,10 +371,8 @@
       fillSelect(document.getElementById('merged-child'), [], '先選母標籤');
       fillSelect(document.getElementById('deck-list-parent-tag'), parents, '全部');
       fillSelect(document.getElementById('deck-list-child-tag'), [], '全部');
-      fillSelect(document.getElementById('fc-parent-tag'), parents, '全部');
-      fillSelect(document.getElementById('phrase-fc-parent-tag'), parents, '全部');
-      fillSelect(document.getElementById('fc-child-tag'), [], '全部');
-      fillSelect(document.getElementById('phrase-fc-child-tag'), [], '全部');
+      fillSelect(document.getElementById('quiz-parent-tag'), parents, '全部');
+      fillSelect(document.getElementById('quiz-child-tag'), [], '全部');
     }
     function onParentChange(parentSelectId, childSelectId) {
       var parentEl = document.getElementById(parentSelectId);
@@ -428,8 +386,7 @@
     }
     onParentChange('merged-parent', 'merged-child');
     onParentChange('deck-list-parent-tag', 'deck-list-child-tag');
-    onParentChange('fc-parent-tag', 'fc-child-tag');
-    onParentChange('phrase-fc-parent-tag', 'phrase-fc-child-tag');
+    onParentChange('quiz-parent-tag', 'quiz-child-tag');
     document.getElementById('btn-add-parent').addEventListener('click', async function() {
       var name = (document.getElementById('new-parent-name').value || '').trim();
       if (!name) { setMsg('merged-import-msg', '請輸入母標籤名稱', true); return; }
@@ -728,303 +685,156 @@
         setMsg('deck-list-msg', '刪除失敗：' + (err && err.message ? err.message : String(err)), true);
       }
     });
-    document.getElementById('btn-deck-list-clear-legacy').addEventListener('click', async function() {
-      if (!confirm('確定要刪除所有「無標籤」的舊單字與短語？（母標籤規則前建立的資料，此操作無法復原）')) return;
-      clearMsg('deck-list-msg');
+    // 測驗（合併單字＋短語，依題庫選擇）
+    var quizDeck = [];
+    var quizDeckIndex = 0;
+    var currentQuizCard = null;
+
+    function shuffleArray(a) {
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+
+    function showQuizFront(card) {
+      var front = document.getElementById('quiz-front');
+      var back = document.getElementById('quiz-back');
+      var actions = document.getElementById('quiz-actions');
+      var btnFlip = document.getElementById('btn-quiz-flip');
+      front.style.display = 'block';
+      back.style.display = 'none';
+      actions.style.display = 'none';
+      btnFlip.style.display = 'block';
+      var baseUrl = API || window.location.origin || '';
+      if (card.type === 'vocab') {
+        var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
+        var kana = (card.front && card.front.kana) ? card.front.kana : '';
+        var audioUrl = baseUrl + '/api/audio/play/' + card.vocabulary_id;
+        front.innerHTML = '<div class="card-ja">' + (kanji || '') + '</div><div class="card-kana">' + (kana || '') + '</div><button type="button" class="btn" id="btn-quiz-pronounce">🔊 發音</button>';
+        setTimeout(function() {
+          var btn = document.getElementById('btn-quiz-pronounce');
+          if (btn && kana) {
+            var playing = false;
+            btn.onclick = function(ev) { ev.preventDefault(); ev.stopPropagation(); if (playing) return; playing = true; setTimeout(function() { playing = false; }, 800); new Audio(audioUrl).play().catch(function() { setMsg('quiz-msg', '無法播放', true); }); };
+          }
+        }, 0);
+      } else {
+        var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
+        var kana = (card.front && card.front.kana) ? card.front.kana : '';
+        var audioUrl = baseUrl + '/api/audio/phrase/' + card.phrase_id;
+        front.innerHTML = '<div class="card-ja" style="font-size:1.4rem; white-space:pre-wrap; word-break:break-word;">' + (kanji || kana || '') + '</div><div class="card-kana" style="font-size:1rem;">' + (kana && kana !== kanji ? kana : '') + '</div><button type="button" class="btn" id="btn-quiz-pronounce">🔊 發音</button>';
+        setTimeout(function() {
+          var btn = document.getElementById('btn-quiz-pronounce');
+          if (btn) { var playing = false; btn.onclick = function(ev) { ev.preventDefault(); ev.stopPropagation(); if (playing) return; playing = true; setTimeout(function() { playing = false; }, 800); new Audio(audioUrl).play().catch(function() { setMsg('quiz-msg', '無法播放', true); }); }; }
+        }, 0);
+      }
+    }
+
+    function showQuizBack(card) {
+      var back = document.getElementById('quiz-back');
+      back.style.display = 'block';
+      document.getElementById('quiz-actions').style.display = 'flex';
+      document.getElementById('btn-quiz-flip').style.display = 'none';
+      var meaning = (card.back && card.back.meaning) ? card.back.meaning : '';
+      back.innerHTML = '<div class="meaning" style="white-space:pre-wrap; word-break:break-word;">' + meaning + '</div>';
+    }
+
+    function showNextQuizCard() {
+      quizDeckIndex++;
+      if (quizDeckIndex < quizDeck.length) {
+        currentQuizCard = quizDeck[quizDeckIndex];
+        document.getElementById('quiz-back').style.display = 'none';
+        document.getElementById('quiz-actions').style.display = 'none';
+        document.getElementById('btn-quiz-flip').style.display = 'block';
+        showQuizFront(currentQuizCard);
+        setMsg('quiz-msg', '第 ' + (quizDeckIndex + 1) + ' / ' + quizDeck.length + ' 張', false);
+      } else {
+        currentQuizCard = null;
+        document.getElementById('quiz-empty').style.display = 'block';
+        document.getElementById('quiz-empty').innerHTML = '<p>本次完成（共 ' + quizDeck.length + ' 張）</p><button type="button" class="btn" id="btn-quiz-start">再載入</button>';
+        document.getElementById('quiz-box').style.display = 'none';
+        setMsg('quiz-msg', '本次完成', false);
+        var b = document.getElementById('btn-quiz-start');
+        if (b) b.onclick = loadQuizDeck;
+      }
+    }
+
+    async function loadQuizDeck() {
+      clearMsg('quiz-msg');
+      var childId = document.getElementById('quiz-child-tag') ? document.getElementById('quiz-child-tag').value : '';
+      var parentId = document.getElementById('quiz-parent-tag') ? document.getElementById('quiz-parent-tag').value : '';
+      var starred = document.getElementById('quiz-starred') ? document.getElementById('quiz-starred').checked : false;
+      var limit = parseInt(document.getElementById('quiz-limit').value, 10) || 20;
+      limit = Math.max(1, Math.min(200, limit));
+      var q = [];
+      if (childId) q.push('tag_id=' + encodeURIComponent(childId));
+      else if (parentId) q.push('parent_tag_id=' + encodeURIComponent(parentId));
+      if (starred) q.push('starred_only=true');
+      var extra = q.length ? '&' + q.join('&') : '';
       try {
         var [rV, rP] = await Promise.all([
-          fetch(API + '/api/vocabulary/legacy', { method: 'DELETE' }),
-          fetch(API + '/api/phrases/legacy', { method: 'DELETE' })
+          fetch(API + '/api/flashcards?card_type=ja_to_zh&limit=' + limit + extra),
+          fetch(API + '/api/phrases/deck?limit=' + limit + extra)
         ]);
         var dV = await rV.json().catch(function() { return {}; });
         var dP = await rP.json().catch(function() { return {}; });
         if (!rV.ok) throw new Error(dV.detail || rV.statusText);
         if (!rP.ok) throw new Error(dP.detail || rP.statusText);
-        setMsg('deck-list-msg', '已清除舊資料：單字 ' + (dV.deleted_count || 0) + ' 筆、短語 ' + (dP.deleted_count || 0) + ' 筆', false);
-        deckListReload();
-      } catch (err) {
-        setMsg('deck-list-msg', '清除失敗：' + (err && err.message ? err.message : String(err)), true);
-      }
-    });
-
-    // 抽卡
-    let currentCard = null;
-    let audioEl = null;
-
-    function showCardFront(card) {
-      const front = document.getElementById('card-front');
-      const back = document.getElementById('card-back');
-      const actions = document.getElementById('card-actions');
-      const btnFlip = document.getElementById('btn-flip');
-      front.style.display = 'block';
-      back.style.display = 'none';
-      actions.style.display = 'none';
-      btnFlip.style.display = 'block';
-      var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
-      var kana = (card.front && card.front.kana) ? card.front.kana : '';
-      if (!kanji && !kana) { kanji = card.back && card.back.kanji ? card.back.kanji : ''; kana = card.back && card.back.kana ? card.back.kana : ''; }
-      /** 只取日文（假名・漢字），去掉羅馬拼音，發音才不會唸兩次或怪聲 */
-      function kanaOnlyForTts(s) {
-        if (!s || !s.trim()) return s || '';
-        return s.replace(/[^\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u30FB\u3000\s]/g, '').trim() || s.trim();
-      }
-      var kanaForTts = kanaOnlyForTts(kana);
-      var baseUrl = API || window.location.origin || '';
-      var audioUrl = baseUrl + '/api/audio/play/' + card.vocabulary_id;
-      front.innerHTML = '<div class="card-ja">' + (kanji || '') + '</div><div class="card-kana">' + (kana || '') + '</div>' +
-        '<button type="button" class="btn" id="btn-play-pronounce">🔊 發音</button>';
-      setTimeout(function() {
-        var btn = document.getElementById('btn-play-pronounce');
-        if (!btn || !kana) return;
-        var playing = false;
-        btn.onclick = function(ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          if (playing) return;
-          playing = true;
-          setTimeout(function() { playing = false; }, 800);
-          var audio = new Audio(audioUrl);
-          audio.play().catch(function() { setMsg('fc-msg', '無法播放（請確認後端已啟動且網路正常）', true); });
-        };
-      }, 0);
-    }
-
-    function showCardBack(card) {
-      const back = document.getElementById('card-back');
-      const actions = document.getElementById('card-actions');
-      const btnFlip = document.getElementById('btn-flip');
-      back.style.display = 'block';
-      actions.style.display = 'flex';
-      btnFlip.style.display = 'none';
-      back.innerHTML = '<div class="meaning">' + (card.back && card.back.meaning ? card.back.meaning : '') + '</div>' +
-        (card.back && (card.back.kanji || card.back.kana) ? '<div class="jp" style="margin-top:0.5rem; color:var(--muted);">' + (card.back.kanji || '') + ' ' + (card.back.kana || '') + '</div>' : '');
-    }
-
-    document.getElementById('btn-flip').addEventListener('click', () => {
-      if (currentCard) showCardBack(currentCard);
-    });
-
-    var currentDeck = [];
-    var currentDeckIndex = 0;
-    /** 載入 20 張未淡化單字，從第一張開始；答題後從牌組依序下一張，不依 SRS。 */
-    async function loadVocabDeck() {
-      clearMsg('fc-msg');
-      var childId = document.getElementById('fc-child-tag') ? document.getElementById('fc-child-tag').value : '';
-      var parentId = document.getElementById('fc-parent-tag') ? document.getElementById('fc-parent-tag').value : '';
-      var starred = document.getElementById('fc-starred') ? document.getElementById('fc-starred').checked : false;
-      var limit = parseInt(document.getElementById('fc-limit').value, 10) || 20;
-      limit = Math.max(1, Math.min(200, limit));
-      var url = API + '/api/flashcards?card_type=ja_to_zh&limit=' + limit;
-      if (childId) url += '&tag_id=' + encodeURIComponent(childId);
-      else if (parentId) url += '&parent_tag_id=' + encodeURIComponent(parentId);
-      if (starred) url += '&starred_only=true';
-      try {
-        var r = await fetch(url);
-        var d;
-        try { d = await r.json(); } catch (_) { d = {}; }
-        if (!r.ok) throw new Error((d && d.detail) ? (Array.isArray(d.detail) ? d.detail[0].msg : d.detail) : r.statusText);
-        var cards = (d && d.cards) ? d.cards : [];
-        if (cards.length === 0) {
-          currentCard = null;
-          currentDeck = [];
-          var emptyEl = document.getElementById('flashcard-empty');
-          var boxEl = document.getElementById('flashcard-box');
-          if (emptyEl) { emptyEl.style.display = 'block'; emptyEl.innerHTML = '<p>目前沒有未淡化的單字可測驗</p><button type="button" class="btn" id="btn-start">載入</button>'; }
-          if (boxEl) boxEl.style.display = 'none';
-          setMsg('fc-msg', '目前沒有可複習的卡片', true);
-          bindStartBtn();
+        var vocabCards = (dV.cards || []).map(function(c) { return { type: 'vocab', vocabulary_id: c.vocabulary_id, front: c.front, back: c.back }; });
+        var phraseCards = (dP.cards || []).map(function(c) { return { type: 'phrase', phrase_id: c.phrase_id, front: c.front, back: c.back }; });
+        var merged = shuffleArray(vocabCards.concat(phraseCards)).slice(0, limit);
+        if (merged.length === 0) {
+          quizDeck = [];
+          currentQuizCard = null;
+          document.getElementById('quiz-empty').style.display = 'block';
+          document.getElementById('quiz-empty').innerHTML = '<p>目前沒有未淡化的單字或短語可測驗</p><button type="button" class="btn" id="btn-quiz-start">載入</button>';
+          document.getElementById('quiz-box').style.display = 'none';
+          setMsg('quiz-msg', '目前沒有可複習的卡片', true);
+          document.getElementById('btn-quiz-start').onclick = loadQuizDeck;
           return;
         }
-        currentDeck = cards;
-        currentDeckIndex = 0;
-        currentCard = currentDeck[0];
-        document.getElementById('flashcard-empty').style.display = 'none';
-        document.getElementById('flashcard-box').style.display = 'block';
-        document.getElementById('card-back').style.display = 'none';
-        document.getElementById('card-actions').style.display = 'none';
-        document.getElementById('btn-flip').style.display = 'block';
-        showCardFront(currentCard);
-        setMsg('fc-msg', '第 1 / ' + currentDeck.length + ' 張', false);
+        quizDeck = merged;
+        quizDeckIndex = 0;
+        currentQuizCard = quizDeck[0];
+        document.getElementById('quiz-empty').style.display = 'none';
+        document.getElementById('quiz-box').style.display = 'block';
+        document.getElementById('quiz-back').style.display = 'none';
+        document.getElementById('quiz-actions').style.display = 'none';
+        document.getElementById('btn-quiz-flip').style.display = 'block';
+        showQuizFront(currentQuizCard);
+        setMsg('quiz-msg', '第 1 / ' + quizDeck.length + ' 張', false);
       } catch (e) {
-        setMsg('fc-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
+        setMsg('quiz-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     }
-    function showNextVocabInDeck() {
-      currentDeckIndex++;
-      if (currentDeckIndex < currentDeck.length) {
-        currentCard = currentDeck[currentDeckIndex];
-        document.getElementById('card-back').style.display = 'none';
-        document.getElementById('card-actions').style.display = 'none';
-        document.getElementById('btn-flip').style.display = 'block';
-        showCardFront(currentCard);
-        setMsg('fc-msg', '第 ' + (currentDeckIndex + 1) + ' / ' + currentDeck.length + ' 張', false);
-      } else {
-        currentCard = null;
-        document.getElementById('flashcard-empty').style.display = 'block';
-        document.getElementById('flashcard-empty').innerHTML = '<p>本次完成（共 ' + currentDeck.length + ' 張）。困難／簡單已反映在單字清單。</p><button type="button" class="btn" id="btn-start">再載入</button>';
-        document.getElementById('flashcard-box').style.display = 'none';
-        setMsg('fc-msg', '本次完成', false);
-        bindStartBtn();
-      }
-    }
-    function bindStartBtn() {
-      var btn = document.getElementById('btn-start');
-      if (btn) btn.onclick = function() { loadVocabDeck(); };
-    }
-    bindStartBtn();
-    document.getElementById('btn-fc-load').addEventListener('click', function() { loadVocabDeck(); });
 
-    document.getElementById('flashcard-inner').addEventListener('click', (e) => {
-      if (!currentCard || e.target.closest('[data-outcome]') || e.target.closest('#btn-flip') || e.target.closest('#btn-play-pronounce')) return;
-      const back = document.getElementById('card-back');
-      if (back.style.display === 'none') showCardBack(currentCard);
+    document.getElementById('btn-quiz-start').onclick = loadQuizDeck;
+    document.getElementById('btn-quiz-load').addEventListener('click', loadQuizDeck);
+    document.getElementById('btn-quiz-flip').addEventListener('click', function() {
+      if (currentQuizCard) showQuizBack(currentQuizCard);
     });
-
-    document.getElementById('card-actions').addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-outcome]');
-      if (!btn || !currentCard) return;
-      const outcome = btn.dataset.outcome;
-      try {
-        const r = await fetch(API + '/api/flashcards/review', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vocabulary_id: currentCard.vocabulary_id, outcome })
-        });
-        let res;
-        try { res = await r.json(); } catch (_) { res = {}; }
-        if (!r.ok) throw new Error(res.detail || r.statusText);
-        setMsg('fc-msg', '已記錄（困難／簡單會反映在清單）', false);
-        showNextVocabInDeck();
-      } catch (err) {
-        setMsg('fc-msg', '送出失敗：' + err.message, true);
-      }
+    document.getElementById('quiz-inner').addEventListener('click', function(e) {
+      if (!currentQuizCard || e.target.closest('[data-outcome]') || e.target.closest('#btn-quiz-flip') || e.target.closest('#btn-quiz-pronounce')) return;
+      if (document.getElementById('quiz-back').style.display === 'none') showQuizBack(currentQuizCard);
     });
-
-    // 短語測驗
-    let currentPhraseCard = null;
-    var currentPhraseDeck = [];
-    var currentPhraseDeckIndex = 0;
-    function showPhraseFront(card) {
-      var front = document.getElementById('phrase-card-front');
-      var kanji = (card.front && card.front.kanji) ? card.front.kanji : '';
-      var kana = (card.front && card.front.kana) ? card.front.kana : '';
-      if (!kanji && !kana) { kanji = card.back && card.back.kanji ? card.back.kanji : ''; kana = card.back && card.back.kana ? card.back.kana : ''; }
-      var baseUrl = API || window.location.origin || '';
-      var audioUrl = baseUrl + '/api/audio/phrase/' + card.phrase_id;
-      front.innerHTML = '<div class="card-ja" style="font-size:1.4rem; white-space:pre-wrap; word-break:break-word;">' + (kanji || kana || '') + '</div><div class="card-kana" style="font-size:1rem;">' + (kana && kana !== kanji ? kana : '') + '</div><button type="button" class="btn" id="btn-phrase-pronounce">🔊 發音</button>';
-      var btn = document.getElementById('btn-phrase-pronounce');
-      if (btn) {
-        var playing = false;
-        btn.onclick = function(ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          if (playing) return;
-          playing = true;
-          setTimeout(function() { playing = false; }, 800);
-          var audio = new Audio(audioUrl);
-          audio.play().catch(function() { setMsg('phrase-fc-msg', '無法播放（請確認後端已啟動）', true); });
-        };
-      }
-    }
-    function showPhraseBack(card) {
-      var back = document.getElementById('phrase-card-back');
-      back.innerHTML = '<div class="meaning" style="white-space:pre-wrap; word-break:break-word;">' + (card.back && card.back.meaning ? card.back.meaning : '') + '</div>';
-    }
-    /** 載入 20 張未淡化短語，答題後依序下一張。 */
-    async function loadPhraseDeck() {
-      clearMsg('phrase-fc-msg');
-      var childId = document.getElementById('phrase-fc-child-tag').value;
-      var parentId = document.getElementById('phrase-fc-parent-tag').value;
-      var starred = document.getElementById('phrase-fc-starred').checked;
-      var limit = parseInt(document.getElementById('phrase-fc-limit').value, 10) || 20;
-      limit = Math.max(1, Math.min(200, limit));
-      var url = API + '/api/phrases/deck?limit=' + limit;
-      if (childId) url += '&tag_id=' + encodeURIComponent(childId);
-      else if (parentId) url += '&parent_tag_id=' + encodeURIComponent(parentId);
-      if (starred) url += '&starred_only=true';
-      try {
-        var r = await fetch(url);
-        var d = await r.json().catch(function() { return {}; });
-        if (!r.ok) throw new Error(d.detail || r.statusText);
-        var cards = (d && d.cards) ? d.cards : [];
-        if (cards.length === 0) {
-          currentPhraseCard = null;
-          currentPhraseDeck = [];
-          document.getElementById('phrase-flashcard-empty').style.display = 'block';
-          document.getElementById('phrase-flashcard-empty').innerHTML = '<p>目前沒有未淡化的短語可測驗</p><button type="button" class="btn" id="btn-phrase-start">載入</button>';
-          document.getElementById('phrase-flashcard-box').style.display = 'none';
-          setMsg('phrase-fc-msg', '目前沒有可複習的短語', true);
-          var b = document.getElementById('btn-phrase-start');
-          if (b) b.onclick = function() { loadPhraseDeck(); };
-          return;
-        }
-        currentPhraseDeck = cards;
-        currentPhraseDeckIndex = 0;
-        currentPhraseCard = currentPhraseDeck[0];
-        document.getElementById('phrase-flashcard-empty').style.display = 'none';
-        document.getElementById('phrase-flashcard-box').style.display = 'block';
-        document.getElementById('phrase-card-back').style.display = 'none';
-        document.getElementById('phrase-card-actions').style.display = 'none';
-        document.getElementById('btn-phrase-flip').style.display = 'block';
-        showPhraseFront(currentPhraseCard);
-        setMsg('phrase-fc-msg', '第 1 / ' + currentPhraseDeck.length + ' 張', false);
-      } catch (e) {
-        setMsg('phrase-fc-msg', '取得失敗：' + (e && e.message ? e.message : String(e)), true);
-      }
-    }
-    function showNextPhraseInDeck() {
-      currentPhraseDeckIndex++;
-      if (currentPhraseDeckIndex < currentPhraseDeck.length) {
-        currentPhraseCard = currentPhraseDeck[currentPhraseDeckIndex];
-        document.getElementById('phrase-card-back').style.display = 'none';
-        document.getElementById('phrase-card-actions').style.display = 'none';
-        document.getElementById('btn-phrase-flip').style.display = 'block';
-        showPhraseFront(currentPhraseCard);
-        setMsg('phrase-fc-msg', '第 ' + (currentPhraseDeckIndex + 1) + ' / ' + currentPhraseDeck.length + ' 張', false);
-      } else {
-        currentPhraseCard = null;
-        document.getElementById('phrase-flashcard-empty').style.display = 'block';
-        document.getElementById('phrase-flashcard-empty').innerHTML = '<p>本次完成（共 ' + currentPhraseDeck.length + ' 張）</p><button type="button" class="btn" id="btn-phrase-start">再載入</button>';
-        document.getElementById('phrase-flashcard-box').style.display = 'none';
-        setMsg('phrase-fc-msg', '本次完成', false);
-        var b = document.getElementById('btn-phrase-start');
-        if (b) b.onclick = function() { loadPhraseDeck(); };
-      }
-    }
-    function bindPhraseStartBtn() {
-      var btn = document.getElementById('btn-phrase-start');
-      if (btn) btn.onclick = function() { loadPhraseDeck(); };
-    }
-    bindPhraseStartBtn();
-    document.getElementById('btn-phrase-fc-load').addEventListener('click', function() { loadPhraseDeck(); });
-    document.getElementById('phrase-flashcard-inner').addEventListener('click', function(ev) {
-      if (!currentPhraseCard || ev.target.closest('[data-outcome]') || ev.target.closest('#btn-phrase-flip')) return;
-      if (document.getElementById('phrase-card-back').style.display === 'none') {
-        showPhraseBack(currentPhraseCard);
-        document.getElementById('phrase-card-back').style.display = 'block';
-        document.getElementById('phrase-card-actions').style.display = 'flex';
-        document.getElementById('btn-phrase-flip').style.display = 'none';
-      }
-    });
-    document.getElementById('btn-phrase-flip').addEventListener('click', function() {
-      if (currentPhraseCard) { showPhraseBack(currentPhraseCard); document.getElementById('phrase-card-back').style.display = 'block'; document.getElementById('phrase-card-actions').style.display = 'flex'; document.getElementById('btn-phrase-flip').style.display = 'none'; }
-    });
-    document.getElementById('phrase-card-actions').addEventListener('click', async function(e) {
+    document.getElementById('quiz-actions').addEventListener('click', async function(e) {
       var btn = e.target.closest('[data-outcome]');
-      if (!btn || !currentPhraseCard) return;
+      if (!btn || !currentQuizCard) return;
       var outcome = btn.dataset.outcome;
       try {
-        var r = await fetch(API + '/api/phrases/review', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phrase_id: currentPhraseCard.phrase_id, outcome })
-        });
-        var res = await r.json().catch(function() { return {}; });
-        if (!r.ok) throw new Error(res.detail || r.statusText);
-        setMsg('phrase-fc-msg', '已記錄', false);
-        showNextPhraseInDeck();
+        if (currentQuizCard.type === 'vocab') {
+          var r = await fetch(API + '/api/flashcards/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vocabulary_id: currentQuizCard.vocabulary_id, outcome }) });
+          if (!r.ok) throw new Error((await r.json().catch(function() { return {}; })).detail || r.statusText);
+        } else {
+          var r = await fetch(API + '/api/phrases/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phrase_id: currentQuizCard.phrase_id, outcome }) });
+          if (!r.ok) throw new Error((await r.json().catch(function() { return {}; })).detail || r.statusText);
+        }
+        setMsg('quiz-msg', '已記錄', false);
+        showNextQuizCard();
       } catch (err) {
-        setMsg('phrase-fc-msg', '送出失敗：' + err.message, true);
+        setMsg('quiz-msg', '送出失敗：' + err.message, true);
       }
     });
   </script>
