@@ -1,6 +1,8 @@
 """
-母標籤／子標籤：依 name 字母排序，供題庫分類與篩選。
+母標籤／子標籤：依 name 自然排序（數字部分按數值），供題庫分類與篩選。
+可保持「第1課、第2課、第10課」等順序。
 """
+import re
 from typing import Any
 
 from sqlalchemy import text
@@ -8,27 +10,45 @@ from sqlalchemy import text
 from app.database import get_connection
 
 
+def _natural_sort_key(name: str) -> list[Any]:
+    """將名稱拆成 [非數字, 數字, 非數字, ...] 作為排序鍵，使第1課 < 第2課 < 第10課。"""
+    if not name:
+        return [""]
+    parts = re.split(r"(\d+)", name)
+    out = []
+    for i, p in enumerate(parts):
+        if p.isdigit():
+            out.append(int(p))
+        else:
+            out.append(p)
+    return out
+
+
 def list_parent_tags() -> list[dict[str, Any]]:
-    """取得所有母標籤（parent_id 為 NULL），依 name 排序。相容舊欄位 tag_name。"""
+    """取得所有母標籤（parent_id 為 NULL），依 name 自然排序。相容舊欄位 tag_name。"""
     session = get_connection()
     try:
         rows = session.execute(
-            text("SELECT id, COALESCE(name, tag_name) AS name FROM tags WHERE parent_id IS NULL ORDER BY COALESCE(name, tag_name)"),
+            text("SELECT id, COALESCE(name, tag_name) AS name FROM tags WHERE parent_id IS NULL"),
         ).mappings().fetchall()
-        return [{"id": r["id"], "name": r["name"] or ""} for r in rows]
+        items = [{"id": r["id"], "name": r["name"] or ""} for r in rows]
+        items.sort(key=lambda x: _natural_sort_key(x["name"]))
+        return items
     finally:
         session.close()
 
 
 def list_child_tags(parent_id: int) -> list[dict[str, Any]]:
-    """取得指定母標籤下的子標籤，依 name 排序。相容舊欄位 tag_name。"""
+    """取得指定母標籤下的子標籤，依 name 自然排序。相容舊欄位 tag_name。"""
     session = get_connection()
     try:
         rows = session.execute(
-            text("SELECT id, COALESCE(name, tag_name) AS name FROM tags WHERE parent_id = :pid ORDER BY COALESCE(name, tag_name)"),
+            text("SELECT id, COALESCE(name, tag_name) AS name FROM tags WHERE parent_id = :pid"),
             {"pid": parent_id},
         ).mappings().fetchall()
-        return [{"id": r["id"], "name": r["name"] or ""} for r in rows]
+        items = [{"id": r["id"], "name": r["name"] or ""} for r in rows]
+        items.sort(key=lambda x: _natural_sort_key(x["name"]))
+        return items
     finally:
         session.close()
 
@@ -67,6 +87,12 @@ def create_child_tag(parent_id: int, name: str) -> dict[str, Any]:
         raise ValueError("子標籤名稱不可為空")
     session = get_connection()
     try:
+        parent_row = session.execute(
+            text("SELECT id FROM tags WHERE id = :pid AND parent_id IS NULL"),
+            {"pid": parent_id},
+        ).mappings().fetchone()
+        if not parent_row:
+            raise ValueError("指定的題庫不存在或不是母標籤，請重新選擇題庫")
         existing = session.execute(
             text("SELECT id FROM tags WHERE parent_id = :pid AND (name = :name OR tag_name = :name)"),
             {"pid": parent_id, "name": name},
@@ -80,9 +106,12 @@ def create_child_tag(parent_id: int, name: str) -> dict[str, Any]:
         row = r.mappings().fetchone()
         session.commit()
         return {"id": row["id"], "name": name, "parent_id": parent_id}
-    except Exception:
+    except ValueError:
         session.rollback()
         raise
+    except Exception as e:
+        session.rollback()
+        raise ValueError(f"寫入失敗：{e!s}") from e
     finally:
         session.close()
 
@@ -96,5 +125,44 @@ def get_child_tag_ids_by_parent(parent_id: int) -> list[int]:
             {"pid": parent_id},
         ).mappings().fetchall()
         return [r["id"] for r in rows]
+    finally:
+        session.close()
+
+
+def delete_child_tag(tag_id: int) -> None:
+    """刪除章節（子標籤）。先將 vocabulary / phrases 的 tag_id 清空，再刪除標籤。"""
+    session = get_connection()
+    try:
+        session.execute(text("UPDATE vocabulary SET tag_id = NULL WHERE tag_id = :id"), {"id": tag_id})
+        session.execute(text("UPDATE phrases SET tag_id = NULL WHERE tag_id = :id"), {"id": tag_id})
+        session.execute(text("DELETE FROM tags WHERE id = :id AND parent_id IS NOT NULL"), {"id": tag_id})
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def delete_parent_tag(tag_id: int) -> None:
+    """刪除題庫（母標籤）。先清空直接指向母標籤的單字／短語，再清空子標籤關聯、刪除子與母。"""
+    session = get_connection()
+    try:
+        session.execute(text("UPDATE vocabulary SET tag_id = NULL WHERE tag_id = :id"), {"id": tag_id})
+        session.execute(text("UPDATE phrases SET tag_id = NULL WHERE tag_id = :id"), {"id": tag_id})
+        rows = session.execute(
+            text("SELECT id FROM tags WHERE parent_id = :pid"),
+            {"pid": tag_id},
+        ).mappings().fetchall()
+        for r in rows:
+            cid = r["id"]
+            session.execute(text("UPDATE vocabulary SET tag_id = NULL WHERE tag_id = :id"), {"id": cid})
+            session.execute(text("UPDATE phrases SET tag_id = NULL WHERE tag_id = :id"), {"id": cid})
+        session.execute(text("DELETE FROM tags WHERE parent_id = :pid"), {"pid": tag_id})
+        session.execute(text("DELETE FROM tags WHERE id = :id AND parent_id IS NULL"), {"id": tag_id})
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()

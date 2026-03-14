@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>みんなの日本語</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='24' font-size='24'>日</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,6 +147,35 @@
     .grammar-view:empty { display: none; }
     .grammar-view-wrap:not(.has-content) { display: none; }
     .table-phrase td { white-space: normal; word-break: break-word; max-width: 18em; vertical-align: top; }
+    /* 手機版：觸控友善、版面緊湊 */
+    @media (max-width: 640px) {
+      .container { padding: 0.75rem 1rem; }
+      h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+      nav { gap: 0.25rem; padding-bottom: 0.5rem; flex-wrap: wrap; }
+      nav button { padding: 0.6rem 0.75rem; font-size: 0.9rem; min-height: 44px; }
+      .card-ui { padding: 1rem; margin-bottom: 0.75rem; }
+      .filters { flex-direction: column; align-items: stretch; gap: 0.5rem; margin-bottom: 0.75rem; }
+      .filters > * { max-width: none; }
+      .filters label { margin-bottom: 0.2rem; }
+      .filters input[type="number"], .filters input[type="text"] { max-width: none; }
+      select { min-width: 0; width: 100%; padding: 0.6rem; min-height: 44px; }
+      .btn { padding: 0.6rem 1rem; min-height: 44px; margin-top: 0.35rem; margin-right: 0.35rem; }
+      .btn-sm { padding: 0.4rem 0.6rem; min-height: 36px; }
+      input[type="number"], input[type="text"] { padding: 0.6rem; max-width: none; }
+      textarea { min-height: 140px; padding: 0.6rem; font-size: 0.95rem; }
+      table { font-size: 0.85rem; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      th, td { padding: 0.4rem 0.5rem; }
+      .flashcard { min-height: 140px; padding: 1rem; }
+      .flashcard .front .card-ja { font-size: 1.75rem; }
+      .flashcard .front .card-kana { font-size: 1.15rem; }
+      .flashcard-actions { gap: 0.4rem; margin-top: 1rem; }
+      .flashcard-actions .btn { padding: 0.6rem 1rem; min-height: 44px; }
+      .prompt-pre { font-size: 0.8rem; padding: 0.75rem; }
+      .grammar-view { max-height: 220px; padding: 0.75rem; font-size: 0.85rem; }
+      #deck-list-actions { flex-wrap: wrap; gap: 0.5rem; }
+      #deck-list-actions select { flex: 1; min-width: 0; }
+      #deck-list-actions .btn { flex: 0 0 auto; }
+    }
   </style>
 </head>
 <body>
@@ -153,7 +183,7 @@
     <h1>みんなの日本語</h1>
     <nav>
       <button type="button" class="active" data-tab="grammar">文法</button>
-      <button type="button" data-tab="import-merged">新增題庫</button>
+      <button type="button" data-tab="import-merged">新增</button>
       <button type="button" data-tab="deck-list">題庫清單</button>
       <button type="button" data-tab="quiz">測驗</button>
     </nav>
@@ -162,16 +192,26 @@
     <section id="panel-grammar" class="panel active">
       <div class="card-ui">
         <label>檢視／編輯文法重點（依課程）</label>
-        <label for="grammar-lesson-id">課程編號（lesson_id，留空＝依課程先後顯示全部）</label>
-        <input type="number" id="grammar-lesson-id" min="1" placeholder="留空＝全部" />
-        <button type="button" class="btn" id="btn-load-grammar">載入本課</button>
+        <div class="filters">
+          <label>選擇課程</label>
+          <select id="grammar-lesson-select">
+            <option value="">全部（僅檢視）</option>
+          </select>
+          <button type="button" class="btn" id="btn-load-grammar">載入</button>
+        </div>
         <div class="grammar-view-wrap" id="grammar-view-wrap">
           <label>本課文法重點（僅檢視，可捲動）</label>
           <div class="grammar-view" id="grammar-view" role="article"></div>
         </div>
         <label for="grammar-content" style="margin-top:0.75rem;">若要新增或修改並儲存</label>
         <textarea id="grammar-content" placeholder="貼上 LLM 整理好的文法重點，或載入後在此編輯…" style="min-height:160px;"></textarea>
-        <button type="button" class="btn" id="btn-save-grammar">儲存至本課</button>
+        <div class="filters">
+          <label>儲存至課程</label>
+          <select id="grammar-save-lesson-select">
+            <option value="">請選擇課程</option>
+          </select>
+          <button type="button" class="btn" id="btn-save-grammar">儲存</button>
+        </div>
         <p id="grammar-msg" class="msg"></p>
       </div>
       <div class="card-ui prompt-block">
@@ -183,37 +223,33 @@
       </div>
     </section>
 
-    <!-- 新增題庫（上方單字、下方短語，中間空一行） -->
+    <!-- 新增（上方單字、下方短語，中間空一行） -->
     <section id="panel-import-merged" class="panel">
       <div class="card-ui">
-        <div class="filters">
-          <label>所屬題庫</label>
-          <select id="merged-parent"></select>
-          <select id="merged-child"></select>
-          <span style="margin-left:0.5rem;">母</span>
-          <input type="text" id="new-parent-name" placeholder="名稱" style="max-width:6rem;" />
-          <button type="button" class="btn btn-sm" id="btn-add-parent">新增</button>
-          <span style="margin-left:0.5rem;">子</span>
-          <input type="text" id="new-child-name" placeholder="名稱" style="max-width:6rem;" />
-          <button type="button" class="btn btn-sm" id="btn-add-merged-child">新增</button>
+        <div class="filters" style="flex-direction:column; align-items:flex-start; gap:0.5rem;">
+          <div class="filters">
+            <label>所選題庫</label>
+            <select id="merged-parent"></select>
+            <button type="button" class="btn btn-sm" id="btn-add-parent">新增</button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-delete-parent" title="刪除所選題庫（含其下章節）">刪除</button>
+          </div>
+          <div class="filters">
+            <label>所選章節</label>
+            <select id="merged-child"></select>
+            <button type="button" class="btn btn-sm" id="btn-add-merged-child">新增</button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-delete-child" title="刪除所選章節，避免誤建">刪除</button>
+          </div>
         </div>
       </div>
       <div class="card-ui">
-        <label>貼上題庫（上方單字、下方短語，中間空一行）</label>
+        <label>貼上題庫內容（分類由上方「所選章節」決定，匯入不區分單字或短語）</label>
         <textarea id="merged-import-text" placeholder="ロビー||大廳&#10;へや|部屋|房間&#10;&#10;いらっしゃいませ||歡迎光臨&#10;[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]"></textarea>
-        <button type="button" class="btn" id="btn-merged-parse">解析預覽</button>
         <button type="button" class="btn" id="btn-merged-import">匯入</button>
         <p id="merged-import-msg" class="msg"></p>
-        <div id="merged-parse-result" style="display:none; margin-top:1rem;">
-          <label>上方區塊（單字）</label>
-          <div id="merged-parse-vocab" class="grammar-view" style="max-height:160px; overflow-y:auto;"></div>
-          <label style="margin-top:0.75rem;">下方區塊（短語）</label>
-          <div id="merged-parse-phrase" class="grammar-view" style="max-height:160px; overflow-y:auto;"></div>
-        </div>
       </div>
       <div class="card-ui prompt-block">
         <label>貼給 Web LLM 的提示詞（預覽＝複製內容）</label>
-        <p class="msg hint">輸入網址後預覽即時更新；複製後貼到 Web LLM，請其依「上部分單字、下部分短語、中間斷行」輸出。</p>
+        <p class="msg hint">匯入時不區分單字／短語，請自行用「所選題庫／章節」建立子資料夾分類。貼上內容後選好要放入的章節再按匯入；若匯入錯章節，可到題庫清單勾選後「移動所選」至正確章節。</p>
         <label for="merged-import-url">網址（選填）</label>
         <input type="text" id="merged-import-url" placeholder="https://youtu.be/..." style="max-width:100%;" />
         <button type="button" class="btn" id="btn-copy-merged-prompt">複製生成提示詞</button>
@@ -232,6 +268,12 @@
           <label><input type="checkbox" id="deck-list-starred" /> 星標</label>
           <button type="button" class="btn" id="btn-deck-list-load">載入</button>
           <button type="button" class="btn btn-outline" id="btn-deck-list-delete" title="刪除所選子標籤的全部單字與短語" style="display:none;">刪除本題庫全部</button>
+        </div>
+        <div id="deck-list-actions" style="display:none; margin-bottom:0.5rem;">
+          <span>移動至</span>
+          <select id="deck-list-move-to-child"></select>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-deck-list-move-selected">移動所選</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-deck-list-delete-selected">刪除所選</button>
         </div>
         <div id="deck-list-vocab-wrap"></div>
         <div id="deck-list-phrase-wrap" style="margin-top:1rem;"></div>
@@ -367,8 +409,8 @@
     }
     async function refreshTagSelects() {
       var parents = await loadParentTags();
-      fillSelect(document.getElementById('merged-parent'), parents, '選擇母標籤');
-      fillSelect(document.getElementById('merged-child'), [], '先選母標籤');
+      fillSelect(document.getElementById('merged-parent'), parents, '選擇題庫');
+      fillSelect(document.getElementById('merged-child'), [], '先選題庫');
       fillSelect(document.getElementById('deck-list-parent-tag'), parents, '全部');
       fillSelect(document.getElementById('deck-list-child-tag'), [], '全部');
       fillSelect(document.getElementById('quiz-parent-tag'), parents, '全部');
@@ -384,12 +426,24 @@
         fillSelect(childEl, children, pid ? '全部' : '先選母標籤');
       });
     }
-    onParentChange('merged-parent', 'merged-child');
+    document.getElementById('merged-parent').addEventListener('change', async function() {
+      var pid = this.value;
+      var children = pid ? await loadChildTags(parseInt(pid, 10)) : [];
+      fillSelect(document.getElementById('merged-child'), children, pid ? '選擇章節' : '先選題庫');
+    });
     onParentChange('deck-list-parent-tag', 'deck-list-child-tag');
+    document.getElementById('deck-list-parent-tag').addEventListener('change', async function() {
+      var pid = this.value;
+      var moveEl = document.getElementById('deck-list-move-to-child');
+      if (moveEl) {
+        var children = pid ? await loadChildTags(parseInt(pid, 10)) : [];
+        fillSelect(moveEl, children, pid ? '選擇章節' : '選擇章節');
+      }
+    });
     onParentChange('quiz-parent-tag', 'quiz-child-tag');
     document.getElementById('btn-add-parent').addEventListener('click', async function() {
-      var name = (document.getElementById('new-parent-name').value || '').trim();
-      if (!name) { setMsg('merged-import-msg', '請輸入母標籤名稱', true); return; }
+      var name = (window.prompt('請輸入新題庫名稱') || '').trim();
+      if (!name) return;
       try {
         var r = await fetch(API + '/api/tags/parents', {
           method: 'POST',
@@ -398,8 +452,7 @@
         });
         var d = await r.json();
         if (!r.ok) throw new Error(d.detail || r.statusText);
-        setMsg('merged-import-msg', '已新增母標籤「' + name + '」', false);
-        document.getElementById('new-parent-name').value = '';
+        setMsg('merged-import-msg', '已新增題庫「' + name + '」', false);
         refreshTagSelects();
       } catch (e) {
         setMsg('merged-import-msg', '新增失敗：' + (e && e.message ? e.message : String(e)), true);
@@ -407,8 +460,9 @@
     });
     document.getElementById('btn-add-merged-child').addEventListener('click', async function() {
       var parentId = document.getElementById('merged-parent') ? document.getElementById('merged-parent').value : '';
-      var name = (document.getElementById('new-child-name').value || '').trim();
-      if (!parentId || !name) { setMsg('merged-import-msg', '請先選母標籤並輸入子標籤名稱', true); return; }
+      if (!parentId) { setMsg('merged-import-msg', '請先選擇題庫', true); return; }
+      var name = (window.prompt('請輸入新章節名稱') || '').trim();
+      if (!name) return;
       try {
         var r = await fetch(API + '/api/tags/children', {
           method: 'POST',
@@ -417,38 +471,43 @@
         });
         var d = await r.json();
         if (!r.ok) throw new Error(d.detail || r.statusText);
-        setMsg('merged-import-msg', '已新增子標籤「' + name + '」', false);
-        document.getElementById('new-child-name').value = '';
+        setMsg('merged-import-msg', '已新增章節「' + name + '」', false);
         var children = await loadChildTags(parseInt(parentId, 10));
-        fillSelect(document.getElementById('merged-child'), children, '選擇子標籤');
+        fillSelect(document.getElementById('merged-child'), children, '選擇章節');
       } catch (e) {
         setMsg('merged-import-msg', '新增失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     });
-    document.getElementById('btn-merged-parse').addEventListener('click', async function() {
-      clearMsg('merged-import-msg');
-      var text = (document.getElementById('merged-import-text').value || '').trim();
-      if (!text) { setMsg('merged-import-msg', '請先貼上題庫內容', true); return; }
+    document.getElementById('btn-delete-parent').addEventListener('click', async function() {
+      var id = document.getElementById('merged-parent').value;
+      if (!id) { setMsg('merged-import-msg', '請先選擇要刪除的題庫', true); return; }
+      if (!window.confirm('確定要刪除此題庫（含其下所有章節）？關聯的單字／短語會改為無標籤。')) return;
       try {
-        var r = await fetch(API + '/api/import-merged/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text })
-        });
-        var d = await r.json();
+        var r = await fetch(API + '/api/tags/parents/' + id, { method: 'DELETE' });
+        var d = await r.json().catch(function() { return {}; });
         if (!r.ok) throw new Error(d.detail || r.statusText);
-        var v = d.vocab || {};
-        var p = d.phrase || {};
-        var vItems = v.items || [];
-        var pItems = p.items || [];
-        var vLines = vItems.length ? vItems.map(function(i) { return (i.kana || '') + '\t' + (i.kanji || '') + '\t' + (i.meaning || ''); }).join('\n') : '（無）';
-        var pLines = pItems.length ? pItems.map(function(i) { return (i.kana || '') + '\t' + (i.kanji || '') + '\t' + (i.meaning || ''); }).join('\n') : '（無）';
-        document.getElementById('merged-parse-vocab').textContent = vLines || '（無）';
-        document.getElementById('merged-parse-phrase').textContent = pLines || '（無）';
-        document.getElementById('merged-parse-result').style.display = 'block';
-        setMsg('merged-import-msg', '上方單字 ' + (v.count || 0) + ' 筆、下方短語 ' + (p.count || 0) + ' 筆', false);
+        setMsg('merged-import-msg', '已刪除題庫', false);
+        refreshTagSelects();
       } catch (e) {
-        setMsg('merged-import-msg', '解析失敗：' + (e && e.message ? e.message : String(e)), true);
+        setMsg('merged-import-msg', '刪除失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
+    document.getElementById('btn-delete-child').addEventListener('click', async function() {
+      var id = document.getElementById('merged-child').value;
+      if (!id) { setMsg('merged-import-msg', '請先選擇要刪除的章節', true); return; }
+      if (!window.confirm('確定要刪除此章節？該章節下的單字／短語會改為無標籤。')) return;
+      try {
+        var r = await fetch(API + '/api/tags/children/' + id, { method: 'DELETE' });
+        var d = await r.json().catch(function() { return {}; });
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        setMsg('merged-import-msg', '已刪除章節', false);
+        var parentId = document.getElementById('merged-parent').value;
+        if (parentId) {
+          var children = await loadChildTags(parseInt(parentId, 10));
+          fillSelect(document.getElementById('merged-child'), children, '選擇章節');
+        } else { refreshTagSelects(); }
+      } catch (e) {
+        setMsg('merged-import-msg', '刪除失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     });
     document.getElementById('btn-merged-import').addEventListener('click', async function() {
@@ -467,13 +526,14 @@
         if (!r.ok) {
           var errMsg = r.status + ' ' + r.statusText;
           try { var d = JSON.parse(bodyText); errMsg = formatError(d); } catch (_) { if (bodyText) errMsg = bodyText; }
-          throw new Error(errMsg);
+          setMsg('merged-import-msg', '匯入失敗：' + errMsg, true);
+          return;
         }
         var d = JSON.parse(bodyText);
         var parts = [];
         if (d.vocabulary && d.vocabulary.imported_count) parts.push('單字 ' + d.vocabulary.imported_count + ' 筆');
         if (d.phrases && d.phrases.imported_count) parts.push('短語 ' + d.phrases.imported_count + ' 筆');
-        setMsg('merged-import-msg', '已匯入：' + (parts.length ? parts.join('、') : '0 筆'), false);
+        setMsg('merged-import-msg', '匯入成功：' + (parts.length ? parts.join('、') : '0 筆'), false);
       } catch (e) {
         setMsg('merged-import-msg', '匯入失敗：' + (e && e.message ? e.message : String(e)), true);
       }
@@ -487,14 +547,25 @@
       return JSON.stringify(d);
     }
 
-    // 文法：載入本課或全部（課程編號留空＝依課程先後顯示全部）
+    async function refreshGrammarLessonSelect() {
+      try {
+        var r = await fetch(API + '/api/lessons');
+        var d = await r.json();
+        var items = (d.items || []).map(function(t) { return { id: t.id, name: t.name }; });
+        fillSelect(document.getElementById('grammar-lesson-select'), items, '全部（僅檢視）');
+        var selSave = document.getElementById('grammar-save-lesson-select');
+        fillSelect(selSave, items, '請選擇課程');
+      } catch (_) {}
+    }
+    refreshGrammarLessonSelect();
+
     document.getElementById('btn-load-grammar').addEventListener('click', async () => {
-      var lessonIdInput = document.getElementById('grammar-lesson-id').value.trim();
+      var lessonVal = document.getElementById('grammar-lesson-select').value;
       var viewEl = document.getElementById('grammar-view');
       var wrapEl = document.getElementById('grammar-view-wrap');
       clearMsg('grammar-msg');
       try {
-        if (lessonIdInput === '') {
+        if (!lessonVal) {
           var r = await fetch(API + '/api/grammar');
           var d = await r.json();
           if (!r.ok) throw new Error(d.detail || r.statusText);
@@ -511,7 +582,7 @@
           document.getElementById('grammar-content').value = '';
           setMsg('grammar-msg', '已載入共 ' + items.length + ' 課（依課程先後）', false);
         } else {
-          var lessonId = parseInt(lessonIdInput, 10) || 1;
+          var lessonId = parseInt(lessonVal, 10);
           var r = await fetch(API + '/api/lessons/' + lessonId + '/grammar');
           var d = await r.json();
           if (!r.ok) throw new Error(d.detail || r.statusText);
@@ -519,6 +590,7 @@
           viewEl.textContent = content;
           wrapEl.classList.toggle('has-content', !!content);
           document.getElementById('grammar-content').value = content;
+          document.getElementById('grammar-save-lesson-select').value = lessonVal;
           setMsg('grammar-msg', '已載入第 ' + lessonId + ' 課', false);
         }
       } catch (e) {
@@ -526,11 +598,12 @@
       }
     });
 
-    // 文法：儲存至本課（需確認，避免誤擊覆蓋）
     document.getElementById('btn-save-grammar').addEventListener('click', async () => {
-      var lessonId = parseInt(document.getElementById('grammar-lesson-id').value, 10) || 1;
+      var lessonVal = document.getElementById('grammar-save-lesson-select').value;
+      if (!lessonVal) { setMsg('grammar-msg', '請先選擇要儲存的課程', true); return; }
+      var lessonId = parseInt(lessonVal, 10);
       var content = document.getElementById('grammar-content').value || '';
-      if (!confirm('確定要儲存至第 ' + lessonId + ' 課？將覆蓋該課現有文法重點。')) return;
+      if (!confirm('確定要儲存至所選課程？將覆蓋該課現有文法重點。')) return;
       clearMsg('grammar-msg');
       try {
         var r = await fetch(API + '/api/lessons/' + lessonId + '/grammar', {
@@ -542,7 +615,7 @@
         if (!r.ok) throw new Error(d.detail || r.statusText);
         document.getElementById('grammar-view').textContent = content;
         document.getElementById('grammar-view-wrap').classList.toggle('has-content', !!content);
-        setMsg('grammar-msg', '已儲存至第 ' + lessonId + ' 課', false);
+        setMsg('grammar-msg', '已儲存至所選課程', false);
       } catch (e) {
         setMsg('grammar-msg', '儲存失敗：' + (e && e.message ? e.message : String(e)), true);
       }
@@ -573,36 +646,57 @@
         var phraseItems = dPhrase.items || [];
         var vWrap = document.getElementById('deck-list-vocab-wrap');
         var pWrap = document.getElementById('deck-list-phrase-wrap');
-        vWrap.innerHTML = vocabItems.length === 0 ? '<p class="empty">尚無單字</p>' : '<label>單字</label><table><thead><tr><th class="jp">五十音</th><th class="jp">日文漢字</th><th>中文解釋</th><th>星標</th><th>淡化</th><th>操作</th></tr></thead><tbody>' +
+        vWrap.innerHTML = vocabItems.length === 0 ? '<p class="empty">尚無單字</p>' : '<label>單字</label><table><thead><tr><th><input type="checkbox" id="deck-vocab-select-all" title="全選單字" /></th><th class="jp">五十音</th><th class="jp">日文漢字</th><th>中文解釋</th><th>發音</th><th>星標</th><th>淡化</th></tr></thead><tbody>' +
           vocabItems.map(function(i) {
             var starBtn = '<button type="button" class="btn btn-outline btn-sm btn-toggle-star" data-id="' + i.id + '" data-starred="' + i.is_starred + '">' + (i.is_starred ? '★' : '☆') + '</button>';
             var masteredBtn = '<button type="button" class="btn btn-outline btn-sm btn-toggle-mastered" data-id="' + i.id + '" data-mastered="' + i.mastered + '">' + (i.mastered ? '是' : '否') + '</button>';
-            return '<tr' + (i.mastered ? ' class="row-mastered"' : '') + '><td class="jp">' + (i.kana || '') + '</td><td class="jp">' + (i.kanji || '') + '</td><td>' + (i.meaning || '') + '</td><td class="star">' + starBtn + '</td><td>' + masteredBtn + '</td><td><button type="button" class="btn btn-outline btn-sm btn-delete-vocab" data-id="' + i.id + '">刪除</button></td></tr>';
+            var audioBtn = '<button type="button" class="btn btn-outline btn-sm btn-vocab-audio" data-id="' + i.id + '" title="發音">🔊</button>';
+            return '<tr' + (i.mastered ? ' class="row-mastered"' : '') + '><td><input type="checkbox" class="deck-vocab-cb" value="' + i.id + '" /></td><td class="jp">' + (i.kana || '') + '</td><td class="jp">' + (i.kanji || '') + '</td><td>' + (i.meaning || '') + '</td><td>' + audioBtn + '</td><td class="star">' + starBtn + '</td><td>' + masteredBtn + '</td></tr>';
           }).join('') + '</tbody></table>';
-        pWrap.innerHTML = phraseItems.length === 0 ? '<p class="empty">尚無短語</p>' : '<label>短語</label><table class="table-phrase"><thead><tr><th class="jp">日文</th><th>中文解釋</th><th>星標</th><th>淡化</th><th>操作</th></tr></thead><tbody>' +
+        pWrap.innerHTML = phraseItems.length === 0 ? '<p class="empty">尚無短語</p>' : '<label>短語</label><table class="table-phrase"><thead><tr><th><input type="checkbox" id="deck-phrase-select-all" title="全選短語" /></th><th class="jp">日文</th><th>中文解釋</th><th>星標</th><th>淡化</th></tr></thead><tbody>' +
           phraseItems.map(function(i) {
             var ja = (i.kanji && i.kanji !== i.kana) ? (i.kana + ' / ' + i.kanji) : (i.kana || '');
             var starBtn = '<button type="button" class="btn btn-outline btn-sm btn-phrase-star" data-id="' + i.id + '" data-starred="' + i.is_starred + '">' + (i.is_starred ? '★' : '☆') + '</button>';
             var masteredBtn = '<button type="button" class="btn btn-outline btn-sm btn-phrase-mastered" data-id="' + i.id + '" data-mastered="' + i.mastered + '">' + (i.mastered ? '是' : '否') + '</button>';
-            return '<tr' + (i.mastered ? ' class="row-mastered"' : '') + '><td class="jp">' + ja + '</td><td>' + (i.meaning || '') + '</td><td class="star">' + starBtn + '</td><td>' + masteredBtn + '</td><td><button type="button" class="btn btn-outline btn-sm btn-phrase-delete" data-id="' + i.id + '">刪除</button></td></tr>';
+            return '<tr' + (i.mastered ? ' class="row-mastered"' : '') + '><td><input type="checkbox" class="deck-phrase-cb" value="' + i.id + '" /></td><td class="jp">' + ja + '</td><td>' + (i.meaning || '') + '</td><td class="star">' + starBtn + '</td><td>' + masteredBtn + '</td></tr>';
           }).join('') + '</tbody></table>';
         document.getElementById('btn-deck-list-delete').style.display = childId ? 'inline-block' : 'none';
+        document.getElementById('deck-list-actions').style.display = (vocabItems.length > 0 || phraseItems.length > 0) ? 'block' : 'none';
         setMsg('deck-list-msg', '單字 ' + vocabItems.length + ' 筆、短語 ' + phraseItems.length + ' 筆', false);
+        var pId = document.getElementById('deck-list-parent-tag').value;
+        if (pId) {
+          loadChildTags(parseInt(pId, 10)).then(function(children) {
+            fillSelect(document.getElementById('deck-list-move-to-child'), children, '選擇章節');
+          });
+        } else {
+          fillSelect(document.getElementById('deck-list-move-to-child'), [], '選擇章節');
+        }
       } catch (e) {
         setMsg('deck-list-msg', '載入失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     });
+    document.getElementById('deck-list-vocab-wrap').addEventListener('change', function(e) {
+      if (e.target.id === 'deck-vocab-select-all') {
+        var wrap = document.getElementById('deck-list-vocab-wrap');
+        var checked = e.target.checked;
+        if (wrap) wrap.querySelectorAll('.deck-vocab-cb').forEach(function(cb) { cb.checked = checked; });
+      }
+    });
+    document.getElementById('deck-list-phrase-wrap').addEventListener('change', function(e) {
+      if (e.target.id === 'deck-phrase-select-all') {
+        var wrap = document.getElementById('deck-list-phrase-wrap');
+        var checked = e.target.checked;
+        if (wrap) wrap.querySelectorAll('.deck-phrase-cb').forEach(function(cb) { cb.checked = checked; });
+      }
+    });
     document.getElementById('deck-list-vocab-wrap').addEventListener('click', async function(e) {
-      var delBtn = e.target.closest('.btn-delete-vocab');
-      if (delBtn) {
-        var id = delBtn.getAttribute('data-id');
-        if (!id || !confirm('確定要刪除此筆單字？')) return;
-        try {
-          var r = await fetch(API + '/api/vocabulary/' + id, { method: 'DELETE' });
-          if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
-          setMsg('deck-list-msg', '已刪除', false);
-          deckListReload();
-        } catch (err) { setMsg('deck-list-msg', '刪除失敗：' + err.message, true); }
+      var audioBtn = e.target.closest('.btn-vocab-audio');
+      if (audioBtn) {
+        var id = audioBtn.getAttribute('data-id');
+        if (id) {
+          var baseUrl = API || window.location.origin || '';
+          try { new Audio(baseUrl + '/api/audio/play/' + id).play().catch(function() { setMsg('deck-list-msg', '無法播放', true); }); } catch (err) { setMsg('deck-list-msg', '發音失敗', true); }
+        }
         return;
       }
       var starBtn = e.target.closest('.btn-toggle-star');
@@ -630,18 +724,6 @@
       }
     });
     document.getElementById('deck-list-phrase-wrap').addEventListener('click', async function(e) {
-      var delBtn = e.target.closest('.btn-phrase-delete');
-      if (delBtn) {
-        var id = delBtn.getAttribute('data-id');
-        if (!id || !confirm('確定要刪除此筆短語？')) return;
-        try {
-          var r = await fetch(API + '/api/phrases/' + id, { method: 'DELETE' });
-          if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
-          setMsg('deck-list-msg', '已刪除', false);
-          deckListReload();
-        } catch (err) { setMsg('deck-list-msg', '刪除失敗：' + err.message, true); }
-        return;
-      }
       var starBtn = e.target.closest('.btn-phrase-star');
       if (starBtn) {
         var id = starBtn.getAttribute('data-id');
@@ -665,6 +747,44 @@
           deckListReload();
         } catch (err) { setMsg('deck-list-msg', '更新失敗', true); }
       }
+    });
+    document.getElementById('btn-deck-list-move-selected').addEventListener('click', async function() {
+      var targetId = document.getElementById('deck-list-move-to-child').value;
+      if (!targetId) { setMsg('deck-list-msg', '請先選擇要移動到的章節', true); return; }
+      var vWrap = document.getElementById('deck-list-vocab-wrap');
+      var pWrap = document.getElementById('deck-list-phrase-wrap');
+      var vocabIds = vWrap ? Array.from(vWrap.querySelectorAll('.deck-vocab-cb:checked')).map(function(cb) { return cb.value; }) : [];
+      var phraseIds = pWrap ? Array.from(pWrap.querySelectorAll('.deck-phrase-cb:checked')).map(function(cb) { return cb.value; }) : [];
+      if (vocabIds.length === 0 && phraseIds.length === 0) { setMsg('deck-list-msg', '請先勾選要移動的單字或短語', true); return; }
+      if (!confirm('確定要將所選 ' + (vocabIds.length + phraseIds.length) + ' 筆移動至所選章節？')) return;
+      clearMsg('deck-list-msg');
+      var ok = 0; var fail = 0;
+      for (var i = 0; i < vocabIds.length; i++) {
+        try { var r = await fetch(API + '/api/vocabulary/' + vocabIds[i], { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag_id: parseInt(targetId, 10) }) }); if (r.ok) ok++; else fail++; } catch (_) { fail++; }
+      }
+      for (var j = 0; j < phraseIds.length; j++) {
+        try { var r = await fetch(API + '/api/phrases/' + phraseIds[j], { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag_id: parseInt(targetId, 10) }) }); if (r.ok) ok++; else fail++; } catch (_) { fail++; }
+      }
+      setMsg('deck-list-msg', '已移動 ' + ok + ' 筆' + (fail ? '，失敗 ' + fail + ' 筆' : ''), fail > 0);
+      deckListReload();
+    });
+    document.getElementById('btn-deck-list-delete-selected').addEventListener('click', async function() {
+      var vWrap = document.getElementById('deck-list-vocab-wrap');
+      var pWrap = document.getElementById('deck-list-phrase-wrap');
+      var vocabIds = vWrap ? Array.from(vWrap.querySelectorAll('.deck-vocab-cb:checked')).map(function(cb) { return cb.value; }) : [];
+      var phraseIds = pWrap ? Array.from(pWrap.querySelectorAll('.deck-phrase-cb:checked')).map(function(cb) { return cb.value; }) : [];
+      if (vocabIds.length === 0 && phraseIds.length === 0) { setMsg('deck-list-msg', '請先勾選要刪除的單字或短語', true); return; }
+      if (!confirm('確定要刪除所選的 ' + (vocabIds.length + phraseIds.length) + ' 筆？')) return;
+      clearMsg('deck-list-msg');
+      var ok = 0; var fail = 0;
+      for (var i = 0; i < vocabIds.length; i++) {
+        try { var r = await fetch(API + '/api/vocabulary/' + vocabIds[i], { method: 'DELETE' }); if (r.ok) ok++; else fail++; } catch (_) { fail++; }
+      }
+      for (var j = 0; j < phraseIds.length; j++) {
+        try { var r = await fetch(API + '/api/phrases/' + phraseIds[j], { method: 'DELETE' }); if (r.ok) ok++; else fail++; } catch (_) { fail++; }
+      }
+      setMsg('deck-list-msg', '已刪除 ' + ok + ' 筆' + (fail ? '，失敗 ' + fail + ' 筆' : ''), fail > 0);
+      deckListReload();
     });
     document.getElementById('btn-deck-list-delete').addEventListener('click', async function() {
       var childId = document.getElementById('deck-list-child-tag').value;

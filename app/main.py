@@ -42,6 +42,8 @@ from app.services.tag_service import (
     list_child_tags,
     create_parent_tag,
     create_child_tag,
+    delete_child_tag,
+    delete_parent_tag,
 )
 from app.services.flashcards import (
     get_deck,
@@ -209,6 +211,22 @@ def _ensure_lesson_exists(session, lesson_id: int) -> None:
     )
 
 
+@app.get("/api/lessons")
+async def list_lessons():
+    """取得所有課程列表（id, name），供文法頁下拉選單使用。"""
+    session = get_connection()
+    try:
+        rows = session.execute(text("SELECT id, lesson_name FROM lessons ORDER BY id ASC")).mappings().fetchall()
+        return {
+            "items": [
+                {"id": r["id"], "name": (r["lesson_name"] or "").strip() or f"第{r['id']}課"}
+                for r in rows
+            ]
+        }
+    finally:
+        session.close()
+
+
 @app.get("/api/grammar")
 async def get_all_grammar():
     """取得所有課程的文法重點，依課程編號先後排序。"""
@@ -329,6 +347,26 @@ async def api_create_child_tag(body: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.delete("/api/tags/children/{tag_id}")
+async def api_delete_child_tag(tag_id: int):
+    """刪除章節（子標籤）。關聯的單字／短語會改為無標籤。"""
+    try:
+        delete_child_tag(tag_id)
+        return {"deleted": tag_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/tags/parents/{tag_id}")
+async def api_delete_parent_tag(tag_id: int):
+    """刪除題庫（母標籤）及其下所有章節。關聯的單字／短語會改為無標籤。"""
+    try:
+        delete_parent_tag(tag_id)
+        return {"deleted": tag_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class ImportMergedParseBody(BaseModel):
     """僅解析題庫貼文，不寫入 DB。"""
     text: str = ""
@@ -374,6 +412,8 @@ async def import_merged_from_text(body: ImportWithTagBody):
         raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
     if not vocab_items and not phrase_items:
         raise HTTPException(status_code=400, detail="解析後沒有有效單字或短語，請檢查格式（上方單字、下方短語、中間空一行）")
+    if phrase_text.strip() and not phrase_items:
+        raise HTTPException(status_code=400, detail="下方短語區塊解析後無有效筆數，請確認每行格式為：假名|漢字（可空）|中文")
     out = {}
     try:
         if vocab_items:
@@ -496,19 +536,28 @@ async def list_vocabulary(
 
 
 class VocabularyPatchBody(BaseModel):
-    """更新單字星標或淡化狀態。"""
+    """更新單字星標、淡化或所屬章節（tag_id）。"""
     is_starred: Optional[bool] = None
     mastered: Optional[bool] = None
+    tag_id: Optional[int] = None
 
 
 @app.patch("/api/vocabulary/{vocabulary_id}")
 async def patch_vocabulary(vocabulary_id: int, body: VocabularyPatchBody):
-    """更新單字的星標或淡化（mastered）狀態，避免測驗誤擊後只能在清單修正。"""
+    """更新單字的星標、淡化或所屬章節（移動至其他子標籤）。"""
     session = get_connection()
     try:
         row = session.execute(text("SELECT id FROM vocabulary WHERE id = :id"), {"id": vocabulary_id}).mappings().fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="找不到該單字")
+        if body.tag_id is not None:
+            tag_row = session.execute(
+                text("SELECT id FROM tags WHERE id = :id AND parent_id IS NOT NULL"),
+                {"id": body.tag_id},
+            ).mappings().fetchone()
+            if not tag_row:
+                raise HTTPException(status_code=400, detail="指定的章節不存在或不是子標籤")
+            session.execute(text("UPDATE vocabulary SET tag_id = :tag_id WHERE id = :id"), {"tag_id": body.tag_id, "id": vocabulary_id})
         if body.is_starred is not None:
             val = 1 if body.is_starred else 0
             session.execute(
@@ -654,16 +703,25 @@ async def list_phrases(
 class PhrasePatchBody(BaseModel):
     is_starred: Optional[bool] = None
     mastered: Optional[bool] = None
+    tag_id: Optional[int] = None
 
 
 @app.patch("/api/phrases/{phrase_id}")
 async def patch_phrase(phrase_id: int, body: PhrasePatchBody):
-    """更新短語星標或淡化；星標與淡化互斥。"""
+    """更新短語星標、淡化或所屬章節（移動至其他子標籤）；星標與淡化互斥。"""
     session = get_connection()
     try:
         row = session.execute(text("SELECT id FROM phrases WHERE id = :id"), {"id": phrase_id}).mappings().fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="找不到該短語")
+        if body.tag_id is not None:
+            tag_row = session.execute(
+                text("SELECT id FROM tags WHERE id = :id AND parent_id IS NOT NULL"),
+                {"id": body.tag_id},
+            ).mappings().fetchone()
+            if not tag_row:
+                raise HTTPException(status_code=400, detail="指定的章節不存在或不是子標籤")
+            session.execute(text("UPDATE phrases SET tag_id = :tag_id WHERE id = :id"), {"tag_id": body.tag_id, "id": phrase_id})
         if body.is_starred is not None:
             val = 1 if body.is_starred else 0
             session.execute(
