@@ -204,8 +204,15 @@
       <div class="card-ui">
         <label>貼上題庫（上方單字、下方短語，中間空一行）</label>
         <textarea id="merged-import-text" placeholder="ロビー||大廳&#10;へや|部屋|房間&#10;&#10;いらっしゃいませ||歡迎光臨&#10;[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]"></textarea>
+        <button type="button" class="btn" id="btn-merged-parse">解析預覽</button>
         <button type="button" class="btn" id="btn-merged-import">匯入</button>
         <p id="merged-import-msg" class="msg"></p>
+        <div id="merged-parse-result" style="display:none; margin-top:1rem;">
+          <label>上方區塊（單字）</label>
+          <div id="merged-parse-vocab" class="grammar-view" style="max-height:160px; overflow-y:auto;"></div>
+          <label style="margin-top:0.75rem;">下方區塊（短語）</label>
+          <div id="merged-parse-phrase" class="grammar-view" style="max-height:160px; overflow-y:auto;"></div>
+        </div>
       </div>
       <div class="card-ui prompt-block">
         <label>貼給 Web LLM 的提示詞（預覽＝複製內容）</label>
@@ -228,6 +235,7 @@
           <label><input type="checkbox" id="deck-list-starred" /> 星標</label>
           <button type="button" class="btn" id="btn-deck-list-load">載入</button>
           <button type="button" class="btn btn-outline" id="btn-deck-list-delete" title="刪除所選子標籤的全部單字與短語" style="display:none;">刪除本題庫全部</button>
+          <button type="button" class="btn btn-outline" id="btn-deck-list-clear-legacy" title="刪除母標籤規則前建立的單字與短語（無標籤的舊資料）">清除舊資料（無標籤）</button>
         </div>
         <div id="deck-list-vocab-wrap"></div>
         <div id="deck-list-phrase-wrap" style="margin-top:1rem;"></div>
@@ -332,9 +340,9 @@
     // 文法／單字／短語：預覽＝複製內容，統一邏輯
     var GRAMMAR_PROMPT_TEXT = '你是一位日文教材編輯。請根據我提供的網址或課文內容，整理「本課文法重點」。\n請條列式輸出，每條可包含：文法項目、例句、簡短說明。不要輸出多餘說明，只輸出文法重點內容。\n';
     var VOCAB_PROMPT_PREFIX = '請根據以下網址，整理本課單字。\n【網址】\n';
-    var VOCAB_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號。\n\n【首行限定】\n僅輸出 lesson_id: [數字]。\n\n【範例格式】\nlesson_id: 3\nロビー||大廳\nへや|部屋|房間\nトイレ||廁所\nおてあらい|お手洗い|洗手間（較委婉）';
+    var VOCAB_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號。\n\n【範例格式】\nロビー||大廳\nへや|部屋|房間\nトイレ||廁所\nおてあらい|お手洗い|洗手間（較委婉）';
     var PHRASE_PROMPT_PREFIX = '請根據以下網址，尋找課程中會話及短語。\n【網址】\n';
-    var PHRASE_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號、不要時間戳。\n\n【範例】\nlesson_id: 3\nいらっしゃいませ||歡迎光臨（店員對客人）\n[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]\nじゃ||那麼...（用於決定買下某物時）';
+    var PHRASE_PROMPT_RULES = '\n\n【輸出規則】\n每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。\n第 1 欄：純假名（五十音）。\n第 2 欄：日文漢字（若該單字無漢字或與假名相同，請留空）。\n第 3 欄：中文解釋。\n\n【嚴格禁止】\n不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號、不要時間戳。\n\n【範例】\nいらっしゃいませ||歡迎光臨（店員對客人）\n[～を] 見せて ください|[～を] 見せて ください|請讓我看一看 [～]\nじゃ||那麼...（用於決定買下某物時）';
 
     function updateGrammarPreview() {
       var el = document.getElementById('grammar-prompt-preview');
@@ -458,6 +466,32 @@
         fillSelect(document.getElementById('merged-child'), children, '選擇子標籤');
       } catch (e) {
         setMsg('merged-import-msg', '新增失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
+    document.getElementById('btn-merged-parse').addEventListener('click', async function() {
+      clearMsg('merged-import-msg');
+      var text = (document.getElementById('merged-import-text').value || '').trim();
+      if (!text) { setMsg('merged-import-msg', '請先貼上題庫內容', true); return; }
+      try {
+        var r = await fetch(API + '/api/import-merged/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text })
+        });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        var v = d.vocab || {};
+        var p = d.phrase || {};
+        var vItems = v.items || [];
+        var pItems = p.items || [];
+        var vLines = vItems.length ? vItems.map(function(i) { return (i.kana || '') + '\t' + (i.kanji || '') + '\t' + (i.meaning || ''); }).join('\n') : '（無）';
+        var pLines = pItems.length ? pItems.map(function(i) { return (i.kana || '') + '\t' + (i.kanji || '') + '\t' + (i.meaning || ''); }).join('\n') : '（無）';
+        document.getElementById('merged-parse-vocab').textContent = vLines || '（無）';
+        document.getElementById('merged-parse-phrase').textContent = pLines || '（無）';
+        document.getElementById('merged-parse-result').style.display = 'block';
+        setMsg('merged-import-msg', '上方單字 ' + (v.count || 0) + ' 筆、下方短語 ' + (p.count || 0) + ' 筆', false);
+      } catch (e) {
+        setMsg('merged-import-msg', '解析失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     });
     document.getElementById('btn-merged-import').addEventListener('click', async function() {
@@ -692,6 +726,24 @@
         deckListReload();
       } catch (err) {
         setMsg('deck-list-msg', '刪除失敗：' + (err && err.message ? err.message : String(err)), true);
+      }
+    });
+    document.getElementById('btn-deck-list-clear-legacy').addEventListener('click', async function() {
+      if (!confirm('確定要刪除所有「無標籤」的舊單字與短語？（母標籤規則前建立的資料，此操作無法復原）')) return;
+      clearMsg('deck-list-msg');
+      try {
+        var [rV, rP] = await Promise.all([
+          fetch(API + '/api/vocabulary/legacy', { method: 'DELETE' }),
+          fetch(API + '/api/phrases/legacy', { method: 'DELETE' })
+        ]);
+        var dV = await rV.json().catch(function() { return {}; });
+        var dP = await rP.json().catch(function() { return {}; });
+        if (!rV.ok) throw new Error(dV.detail || rV.statusText);
+        if (!rP.ok) throw new Error(dP.detail || rP.statusText);
+        setMsg('deck-list-msg', '已清除舊資料：單字 ' + (dV.deleted_count || 0) + ' 筆、短語 ' + (dP.deleted_count || 0) + ' 筆', false);
+        deckListReload();
+      } catch (err) {
+        setMsg('deck-list-msg', '清除失敗：' + (err && err.message ? err.message : String(err)), true);
       }
     });
 

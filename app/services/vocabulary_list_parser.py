@@ -48,9 +48,15 @@ def _is_header_row(parts: list[str]) -> bool:
 
 
 def _parse_lesson_id_line(line: str) -> int | None:
-    """若為 "lesson_id: 3" 或 "lesson_id:3" 則回傳數字，否則 None。"""
-    m = re.match(r"lesson_id\s*:\s*(\d+)", line.strip(), re.I)
+    """若為 "lesson_id: 3" 或 "lesson id: 3" 等則回傳數字，否則 None。"""
+    m = re.match(r"lesson\s*(?:_?\s*)?(?:id|ld)\s*:\s*(\d+)", line.strip(), re.I)
     return int(m.group(1)) if m else None
+
+
+def _is_lesson_line(line: str) -> bool:
+    """是否為 lesson id / lesson ld 等開頭行（應略過，不當成資料列）。含錯字如 lesson ld。"""
+    s = line.strip().lower()
+    return bool(re.match(r"lesson\s*(?:_?\s*)?(?:id|ld)(?:\s*:)?", s))
 
 
 def parse_vocabulary_list(text: str, default_lesson_id: int = 1) -> tuple[list[dict[str, Any]], int]:
@@ -66,10 +72,11 @@ def parse_vocabulary_list(text: str, default_lesson_id: int = 1) -> tuple[list[d
         line = raw_line.strip()
         if not line:
             continue
-        # 可選：第一行指定 lesson_id
-        lid = _parse_lesson_id_line(line)
-        if lid is not None:
-            lesson_id = lid
+        # 略過 lesson_id / lesson id / lesson ld 等開頭行
+        if _is_lesson_line(line):
+            lid = _parse_lesson_id_line(line)
+            if lid is not None:
+                lesson_id = lid
             continue
         parts = _split_line(line)
         if not parts:
@@ -123,7 +130,7 @@ def split_merged_vocab_phrase(text: str) -> tuple[str, str]:
 
 
 def get_format_instruction() -> str:
-    """回傳給 LLM 或使用者的「單字表格式說明」，與前端提示詞一致。"""
+    """回傳給 LLM 或使用者的「單字表格式說明」，與前端提示詞一致。範例不包含 lesson_id。"""
     return """【輸出規則】
 每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。
 第 1 欄：純假名（五十音）。
@@ -131,10 +138,8 @@ def get_format_instruction() -> str:
 第 3 欄：中文解釋。
 
 【嚴格禁止】不要表頭、不要 Markdown、不要解釋性文字、不要序號。
-【首行限定】僅輸出 lesson_id: [數字]。
 
 範例：
-lesson_id: 3
 ロビー||大廳
 へや|部屋|房間
 トイレ||廁所
@@ -142,7 +147,7 @@ lesson_id: 3
 """
 
 
-# 標準提示詞：與前端「貼給 Web LLM 的提示詞」一致，供 API 複製用
+# 標準提示詞：與前端「貼給 Web LLM 的提示詞」一致，供 API 複製用（範例不含 lesson_id）
 STANDARD_LLM_PROMPT = """【輸出規則】
 每行一筆，嚴格使用 Tab（或 |）分隔，共 3 欄。
 第 1 欄：純假名（五十音）。
@@ -152,11 +157,7 @@ STANDARD_LLM_PROMPT = """【輸出規則】
 【嚴格禁止】
 不要表頭、不要 Markdown 表格符號、不要任何解釋性文字、不要序號。
 
-【首行限定】
-僅輸出 lesson_id: [數字]。
-
 【範例格式】
-lesson_id: 3
 ロビー||大廳
 へや|部屋|房間
 トイレ||廁所

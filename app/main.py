@@ -329,6 +329,33 @@ async def api_create_child_tag(body: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class ImportMergedParseBody(BaseModel):
+    """僅解析題庫貼文，不寫入 DB。"""
+    text: str = ""
+
+
+@app.post("/api/import-merged/parse")
+async def import_merged_parse(body: ImportMergedParseBody):
+    """
+    解析題庫貼文：上方單字、下方短語、中間空一行。
+    回傳區分為 vocab（上方）、phrase（下方）兩部分，供預覽與匯入前確認。
+    """
+    vocab_text, phrase_text = split_merged_vocab_phrase(body.text or "")
+    vocab_items = []
+    phrase_items = []
+    try:
+        if vocab_text:
+            vocab_items, _ = parse_vocabulary_list(vocab_text, default_lesson_id=1)
+        if phrase_text:
+            phrase_items, _ = parse_vocabulary_list(phrase_text, default_lesson_id=1)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"解析失敗：{str(e)}")
+    return {
+        "vocab": {"items": vocab_items, "count": len(vocab_items)},
+        "phrase": {"items": phrase_items, "count": len(phrase_items)},
+    }
+
+
 @app.post("/api/import-merged")
 async def import_merged_from_text(body: ImportWithTagBody):
     """
@@ -538,6 +565,18 @@ async def delete_vocabulary_by_tag(tag_id: int):
         session.close()
 
 
+@app.delete("/api/vocabulary/legacy")
+async def delete_vocabulary_legacy():
+    """刪除母標籤規則前建立的單字（tag_id 為 NULL 的舊資料）。"""
+    session = get_connection()
+    try:
+        r = session.execute(text("DELETE FROM vocabulary WHERE tag_id IS NULL"))
+        session.commit()
+        return {"deleted_count": r.rowcount}
+    finally:
+        session.close()
+
+
 # --- 短語（格式同單字三欄，句子較長）---
 
 class PhraseParseBody(BaseModel):
@@ -675,6 +714,18 @@ async def delete_phrases_by_tag(tag_id: int):
         r = session.execute(text("DELETE FROM phrases WHERE tag_id = :tag_id"), {"tag_id": tag_id})
         session.commit()
         return {"deleted_count": r.rowcount, "tag_id": tag_id}
+    finally:
+        session.close()
+
+
+@app.delete("/api/phrases/legacy")
+async def delete_phrases_legacy():
+    """刪除母標籤規則前建立的短語（tag_id 為 NULL 的舊資料）。"""
+    session = get_connection()
+    try:
+        r = session.execute(text("DELETE FROM phrases WHERE tag_id IS NULL"))
+        session.commit()
+        return {"deleted_count": r.rowcount}
     finally:
         session.close()
 
