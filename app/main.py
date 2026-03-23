@@ -200,6 +200,12 @@ class GrammarContentBody(BaseModel):
     content: str = ""
 
 
+class CreateLessonBody(BaseModel):
+    """新增課程（供文法頁下拉使用）；若該課程已存在則不重複建立。"""
+    lesson_id: int = Field(..., ge=1, description="課程編號，例如 1、2、3")
+    name: str = Field("", description="顯示名稱，可空則顯示為「第N課」")
+
+
 def _ensure_lesson_exists(session, lesson_id: int) -> None:
     """若課程不存在則建立手動匯入用 stub。"""
     row = session.execute(text("SELECT id FROM lessons WHERE id = :id"), {"id": lesson_id}).mappings().fetchone()
@@ -209,6 +215,35 @@ def _ensure_lesson_exists(session, lesson_id: int) -> None:
         text("INSERT INTO lessons (id, youtube_url, lesson_name, created_at) VALUES (:id, :url, :name, :created_at)"),
         {"id": lesson_id, "url": f"manual://lesson-{lesson_id}", "name": f"手動匯入 Lesson {lesson_id}", "created_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")},
     )
+
+
+@app.post("/api/lessons")
+async def create_lesson(body: CreateLessonBody):
+    """
+    新增一筆課程（若 lesson_id 已存在則回傳既有，不覆寫名稱）。
+    文法頁「新增課程」用，讓下拉選單可選到新課。
+    """
+    session = get_connection()
+    try:
+        row = session.execute(text("SELECT id, lesson_name FROM lessons WHERE id = :id"), {"id": body.lesson_id}).mappings().fetchone()
+        if row:
+            display = (row["lesson_name"] or "").strip() or f"第{body.lesson_id}課"
+            return {"id": body.lesson_id, "name": display, "created": False}
+        _ensure_lesson_exists(session, body.lesson_id)
+        if (body.name or "").strip():
+            session.execute(
+                text("UPDATE lessons SET lesson_name = :n WHERE id = :id"),
+                {"n": (body.name or "").strip(), "id": body.lesson_id},
+            )
+        session.commit()
+        row2 = session.execute(text("SELECT lesson_name FROM lessons WHERE id = :id"), {"id": body.lesson_id}).mappings().fetchone()
+        display = (row2["lesson_name"] or "").strip() or f"第{body.lesson_id}課"
+        return {"id": body.lesson_id, "name": display, "created": True}
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 @app.get("/api/lessons")

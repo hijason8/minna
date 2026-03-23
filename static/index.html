@@ -197,6 +197,7 @@
           <select id="grammar-lesson-select">
             <option value="">全部（僅檢視）</option>
           </select>
+          <button type="button" class="btn btn-sm" id="btn-add-grammar-lesson">新增課程</button>
           <button type="button" class="btn" id="btn-load-grammar">載入</button>
         </div>
         <div class="grammar-view-wrap" id="grammar-view-wrap">
@@ -558,6 +559,30 @@
       } catch (_) {}
     }
     refreshGrammarLessonSelect();
+
+    document.getElementById('btn-add-grammar-lesson').addEventListener('click', async function() {
+      var numStr = (window.prompt('請輸入課程編號（正整數，例如 1、2、3）') || '').trim();
+      if (!numStr) return;
+      var lessonId = parseInt(numStr, 10);
+      if (isNaN(lessonId) || lessonId < 1) { setMsg('grammar-msg', '課程編號須為正整數', true); return; }
+      var name = (window.prompt('課程顯示名稱（可留空，將顯示為「第' + lessonId + '課」）') || '').trim();
+      clearMsg('grammar-msg');
+      try {
+        var r = await fetch(API + '/api/lessons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lesson_id: lessonId, name: name })
+        });
+        var d = await r.json().catch(function() { return {}; });
+        if (!r.ok) throw new Error(d.detail || r.statusText);
+        await refreshGrammarLessonSelect();
+        document.getElementById('grammar-lesson-select').value = String(d.id);
+        document.getElementById('grammar-save-lesson-select').value = String(d.id);
+        setMsg('grammar-msg', (d.created ? '已新增課程' : '該課程已存在，已選取') + '：' + (d.name || ''), false);
+      } catch (e) {
+        setMsg('grammar-msg', '新增失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
 
     document.getElementById('btn-load-grammar').addEventListener('click', async () => {
       var lessonVal = document.getElementById('grammar-lesson-select').value;
