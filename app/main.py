@@ -44,6 +44,8 @@ from app.services.tag_service import (
     create_child_tag,
     delete_child_tag,
     delete_parent_tag,
+    rename_child_tag,
+    rename_parent_tag,
 )
 from app.services.flashcards import (
     get_deck,
@@ -436,6 +438,29 @@ async def api_create_child_tag(body: dict):
         raise HTTPException(status_code=400, detail="name 不可為空")
     try:
         return create_child_tag(int(parent_id), name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class TagRenameBody(BaseModel):
+    """重新命名母標籤或子標籤。"""
+    name: str = Field(..., min_length=1, description="新名稱")
+
+
+@app.patch("/api/tags/parents/{tag_id}")
+async def api_rename_parent_tag(tag_id: int, body: TagRenameBody):
+    """重新命名題庫（母標籤）。"""
+    try:
+        return rename_parent_tag(tag_id, body.name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/api/tags/children/{tag_id}")
+async def api_rename_child_tag(tag_id: int, body: TagRenameBody):
+    """重新命名章節（子標籤）。"""
+    try:
+        return rename_child_tag(tag_id, body.name)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -198,9 +198,9 @@
             <option value="">全部（僅檢視）</option>
           </select>
           <button type="button" class="btn btn-sm" id="btn-add-grammar-lesson">新增課程</button>
+          <button type="button" class="btn" id="btn-load-grammar">載入</button>
           <button type="button" class="btn btn-sm btn-outline" id="btn-rename-grammar-lesson" title="重新命名所選課程">改名</button>
           <button type="button" class="btn btn-sm btn-outline" id="btn-delete-grammar-lesson" title="刪除所選課程">刪除</button>
-          <button type="button" class="btn" id="btn-load-grammar">載入</button>
         </div>
         <div class="grammar-view-wrap" id="grammar-view-wrap">
           <label>本課文法重點（僅檢視，可捲動）</label>
@@ -234,12 +234,14 @@
             <label>所選題庫</label>
             <select id="merged-parent"></select>
             <button type="button" class="btn btn-sm" id="btn-add-parent">新增</button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-rename-parent" title="重新命名所選題庫">改名</button>
             <button type="button" class="btn btn-sm btn-outline" id="btn-delete-parent" title="刪除所選題庫（含其下章節）">刪除</button>
           </div>
           <div class="filters">
             <label>所選章節</label>
             <select id="merged-child"></select>
             <button type="button" class="btn btn-sm" id="btn-add-merged-child">新增</button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-rename-merged-child" title="重新命名所選章節">改名</button>
             <button type="button" class="btn btn-sm btn-outline" id="btn-delete-child" title="刪除所選章節，避免誤建">刪除</button>
           </div>
         </div>
@@ -481,6 +483,54 @@
         setMsg('merged-import-msg', '新增失敗：' + (e && e.message ? e.message : String(e)), true);
       }
     });
+    document.getElementById('btn-rename-parent').addEventListener('click', async function() {
+      var id = document.getElementById('merged-parent').value;
+      if (!id) { setMsg('merged-import-msg', '請先選擇要改名的題庫', true); return; }
+      var newName = (window.prompt('請輸入新的題庫名稱') || '').trim();
+      if (!newName) return;
+      clearMsg('merged-import-msg');
+      try {
+        var r = await fetch(API + '/api/tags/parents/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName })
+        });
+        var d = await r.json().catch(function() { return {}; });
+        if (!r.ok) throw new Error(formatError(d.detail || d) || r.statusText);
+        await refreshTagSelects();
+        document.getElementById('merged-parent').value = id;
+        setMsg('merged-import-msg', '題庫已改名', false);
+      } catch (e) {
+        setMsg('merged-import-msg', '改名失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
+    document.getElementById('btn-rename-merged-child').addEventListener('click', async function() {
+      var id = document.getElementById('merged-child').value;
+      var parentId = document.getElementById('merged-parent').value;
+      if (!id) { setMsg('merged-import-msg', '請先選擇要改名的章節', true); return; }
+      var newName = (window.prompt('請輸入新的章節名稱') || '').trim();
+      if (!newName) return;
+      clearMsg('merged-import-msg');
+      try {
+        var r = await fetch(API + '/api/tags/children/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName })
+        });
+        var d = await r.json().catch(function() { return {}; });
+        if (!r.ok) throw new Error(formatError(d.detail || d) || r.statusText);
+        await refreshTagSelects();
+        if (parentId) {
+          document.getElementById('merged-parent').value = parentId;
+          var children = await loadChildTags(parseInt(parentId, 10));
+          fillSelect(document.getElementById('merged-child'), children, '選擇章節');
+          document.getElementById('merged-child').value = id;
+        }
+        setMsg('merged-import-msg', '章節已改名', false);
+      } catch (e) {
+        setMsg('merged-import-msg', '改名失敗：' + (e && e.message ? e.message : String(e)), true);
+      }
+    });
     document.getElementById('btn-delete-parent').addEventListener('click', async function() {
       var id = document.getElementById('merged-parent').value;
       if (!id) { setMsg('merged-import-msg', '請先選擇要刪除的題庫', true); return; }
@@ -551,19 +601,16 @@
     }
 
     /**
-     * 重新載入文法頁課程下拉；依課程編號數值排序，選項顯示為「編號. 名稱」避免中文名稱亂序。
+     * 重新載入文法頁課程下拉；依課程編號數值排序，選項只顯示名稱（不強制加序號）。
      */
     async function refreshGrammarLessonSelect() {
       try {
         var r = await fetch(API + '/api/lessons');
         var d = await r.json();
-        var raw = (d.items || []).map(function(t) { return { id: t.id, name: t.name }; });
+        var raw = (d.items || []).map(function(t) { return { id: t.id, name: t.name || '' }; });
         raw.sort(function(a, b) { return (Number(a.id) || 0) - (Number(b.id) || 0); });
-        var items = raw.map(function(t) {
-          return { id: t.id, name: t.id + '. ' + (t.name || '') };
-        });
-        fillSelect(document.getElementById('grammar-lesson-select'), items, '全部（僅檢視）');
-        fillSelect(document.getElementById('grammar-save-lesson-select'), items, '請選擇課程');
+        fillSelect(document.getElementById('grammar-lesson-select'), raw, '全部（僅檢視）');
+        fillSelect(document.getElementById('grammar-save-lesson-select'), raw, '請選擇課程');
       } catch (_) {}
     }
     function getGrammarManagedLessonId() {
