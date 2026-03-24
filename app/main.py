@@ -206,6 +206,11 @@ class CreateLessonBody(BaseModel):
     name: str = Field("", description="顯示名稱，可空則顯示為「第N課」")
 
 
+class PatchLessonBody(BaseModel):
+    """更新課程顯示名稱（文法頁「改名」）。"""
+    name: str = Field(..., min_length=1, description="新顯示名稱")
+
+
 def _ensure_lesson_exists(session, lesson_id: int) -> None:
     """若課程不存在則建立手動匯入用 stub。"""
     row = session.execute(text("SELECT id FROM lessons WHERE id = :id"), {"id": lesson_id}).mappings().fetchone()
@@ -246,18 +251,71 @@ async def create_lesson(body: CreateLessonBody):
         session.close()
 
 
+@app.patch("/api/lessons/{lesson_id:int}")
+async def patch_lesson(lesson_id: int, body: PatchLessonBody):
+    """更新課程顯示名稱。"""
+    session = get_connection()
+    try:
+        row = session.execute(text("SELECT id FROM lessons WHERE id = :id"), {"id": lesson_id}).mappings().fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="課程不存在")
+        session.execute(
+            text("UPDATE lessons SET lesson_name = :n WHERE id = :id"),
+            {"n": (body.name or "").strip(), "id": lesson_id},
+        )
+        session.commit()
+        return {"id": lesson_id, "name": (body.name or "").strip()}
+    finally:
+        session.close()
+
+
+@app.delete("/api/lessons/{lesson_id:int}")
+async def delete_lesson(lesson_id: int):
+    """
+    刪除課程（僅在無單字／短語／解析紀錄關聯時允許）。
+    若有關聯則回傳 400，請先於題庫處理。
+    """
+    session = get_connection()
+    try:
+        row = session.execute(text("SELECT id FROM lessons WHERE id = :id"), {"id": lesson_id}).mappings().fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="課程不存在")
+        v = session.execute(text("SELECT COUNT(*) AS c FROM vocabulary WHERE lesson_id = :id"), {"id": lesson_id}).mappings().fetchone()
+        p = session.execute(text("SELECT COUNT(*) AS c FROM phrases WHERE lesson_id = :id"), {"id": lesson_id}).mappings().fetchone()
+        u = session.execute(text("SELECT COUNT(*) AS c FROM url_parse_history WHERE lesson_id = :id"), {"id": lesson_id}).mappings().fetchone()
+        if (v["c"] or 0) > 0 or (p["c"] or 0) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="此課程尚有單字或短語，無法刪除；請先於題庫清單移動或刪除後再試。",
+            )
+        if (u["c"] or 0) > 0:
+            session.execute(text("DELETE FROM url_parse_history WHERE lesson_id = :id"), {"id": lesson_id})
+        session.execute(text("DELETE FROM lesson_tags WHERE lesson_id = :id"), {"id": lesson_id})
+        session.execute(text("DELETE FROM lessons WHERE id = :id"), {"id": lesson_id})
+        session.commit()
+        return {"deleted": lesson_id}
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 @app.get("/api/lessons")
 async def list_lessons():
-    """取得所有課程列表（id, name），供文法頁下拉選單使用。"""
+    """取得所有課程列表（id, name），依課程編號數值遞增排序。"""
     session = get_connection()
     try:
         rows = session.execute(text("SELECT id, lesson_name FROM lessons ORDER BY id ASC")).mappings().fetchall()
-        return {
-            "items": [
-                {"id": r["id"], "name": (r["lesson_name"] or "").strip() or f"第{r['id']}課"}
-                for r in rows
-            ]
-        }
+        items = [
+            {"id": int(r["id"]), "name": (r["lesson_name"] or "").strip() or f"第{r['id']}課"}
+            for r in rows
+        ]
+        items.sort(key=lambda x: x["id"])
+        return {"items": items}
     finally:
         session.close()
 
